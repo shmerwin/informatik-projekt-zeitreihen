@@ -6,5 +6,46 @@ __pycache__/
 # PyCharm
 .idea/
 
-# generierte Plots (werden vom Skript erzeugt)
+# generierte Plots
 plots/
+
+# LaTeX: Build-Output von TeXiFy
+out/
+auxil/
+
+# LaTeX
+*.aux
+*.log
+*.toc
+*.out
+*.bbl
+*.bcf
+*.blg
+*.run.xml
+*.synctex.gz
+*.synctex(busy)
+*.fls
+*.fdb_latexmk
+
+# Glossar/Akronyme
+*.glo
+*.gls
+*.glg
+*.glsdefs
+*.acn
+*.acr
+*.alg
+*.ist
+
+# LaTeX: Abbildungs-/Tabellenverzeichnis
+*.lof
+*.lot
+*.lol
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Trainierte Modelle
+*.h5
+*.keras

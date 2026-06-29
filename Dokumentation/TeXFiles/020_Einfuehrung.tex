@@ -1,0 +1,44 @@
+\chapter{Einführung}
+\label{ch:Einfuehrung}
+
+Wie viele Menschen zu einer bestimmten Zeit an einem Ort unterwegs sind, folgt
+meist einem klaren Rhythmus. Tagsüber sind es mehr als nachts, und unter der
+Woche andere Zahlen als am Wochenende. Auch der Ort spielt eine Rolle, denn an
+einem belebten Platz ist mehr los als in einer ruhigen Seitenstraße. Wenn man
+dieses regelmäßige Verhalten kennt, fallen Abweichungen davon auf. Eine solche
+Abweichung vom gewohnten Muster nennt man Anomalie.
+
+Grundlage dieser Arbeit ist ein realer Datensatz der Stadt Bad Nauheim. An
+30~Standorten wurde vom 30.~Juni bis zum 13.~Juli 2025 stündlich gezählt, wie
+viele Passanten unterwegs waren. Für jeden Sensor entsteht so eine eigene
+Zeitreihe über zwei Wochen.
+
+\section{Motivation}
+\label{sec:Einfuehrung_Motivation}
+
+Mit diesem Projekt wollen wir herausfinden, ob sich solche Anomalien mit Methoden
+des Deep Learnings zuverlässig erkennen lassen und welche Modellart sich dafür am
+besten eignet. Die Schwierigkeit dabei ist, dass die Daten nicht beschriftet
+sind. Es ist nirgends vermerkt, welche Stunde normal war und welche nicht. Ein
+Modell muss das normale Verhalten also selbst aus den Daten lernen und melden,
+wenn die Realität davon abweicht. Feste Schwellenwerte helfen hier kaum, weil
+sich das Normalverhalten je nach Tageszeit, Wochentag und Standort verändert.
+
+\section{Zielsetzung}
+\label{sec:Einfuehrung_Zielsetzung}
+
+Das Ziel ist ein System, das für jeden Sensor das normale Passantenaufkommen
+lernt und auffällige Stunden meldet. Dafür setzen wir mehrere
+Deep-Learning-Architekturen um, darunter LSTM/GRU, Autoencoder und Transformer,
+und vergleichen sie anhand nachvollziehbarer Kennzahlen. So können wir begründen,
+welcher Ansatz für diese Art von Daten am besten funktioniert.
+
+\section{Aufbau der Arbeit}
+\label{sec:Einfuehrung_Aufbau}
+
+Kapitel~\ref{ch:Hintergrund} erklärt die nötigen Grundlagen zu Zeitreihen,
+neuronalen Netzen und den verwendeten Architekturen. Anschließend ordnet der
+Stand der Technik die Arbeit in bestehende Verfahren ein. Danach folgen die
+entwickelte Methode mit Datenaufbereitung und Training, die Evaluation der
+Modelle und die Ergebnisse. Den Abschluss bildet eine Zusammenfassung mit
+Ausblick.
