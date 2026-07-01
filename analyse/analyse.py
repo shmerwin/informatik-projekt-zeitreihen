@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 # 1. Daten laden
 # Pfad relativ zu dieser Datei
-datei = Path(__file__).parent / "data" / "sensordata.json"
+datei = Path(__file__).parent.parent / "data" / "raw" / "sensordata.json"
 with open(datei, encoding="utf-8") as f:
     roh = json.load(f)
 
