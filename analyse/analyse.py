@@ -1,9 +1,12 @@
-# Datenanalyse - Passantenfrequenzen Bad Nauheim
+# Datenanalyse: Passantenfrequenzen Bad Nauheim
 
 import json
 from pathlib import Path
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 
 # 1. Daten laden
@@ -65,14 +68,14 @@ ranking = df.groupby("name")["visitors"].mean().sort_values(ascending=False)
 print("\nRanking der Standorte (Durchschnitt Besucher/Stunde):")
 print(ranking.head(30).round(1))
 
-# Hoechster Einzelwert
+# Höchster Einzelwert
 spitze = df.loc[df["visitors"].idxmax()]
-print("\nHoechster Einzelwert:", int(spitze["visitors"]), "Besucher")
+print("\nHöchster Einzelwert:", int(spitze["visitors"]), "Besucher")
 print("  am", spitze["timestamp"], "bei", spitze["name"])
 
 
 # 5. Visualisierung
-# 5.1 Gesamtaufkommen über die Zeit
+# Gesamtaufkommen über die Zeit
 gesamt = df.groupby("timestamp")["visitors"].sum()
 plt.figure(figsize=(12, 4))
 plt.plot(gesamt.index, gesamt.values)
@@ -82,7 +85,7 @@ plt.ylabel("Besucher (Summe aller Sensoren)")
 plt.tight_layout()
 plt.show()
 
-# 5.2 Durchschnitt pro Stunde
+# Durchschnitt pro Stunde
 stunde = df.groupby(df["timestamp"].dt.hour)["visitors"].mean()
 plt.figure(figsize=(8, 4))
 plt.bar(stunde.index, stunde.values)
@@ -92,7 +95,7 @@ plt.ylabel("Durchschnitt Besucher")
 plt.tight_layout()
 plt.show()
 
-# 5.3 Wochenmuster
+# Wochenmuster
 tage = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 woche = df.groupby(df["timestamp"].dt.dayofweek)["visitors"].mean()
 plt.figure(figsize=(8, 4))
@@ -102,7 +105,7 @@ plt.ylabel("Durchschnitt Besucher")
 plt.tight_layout()
 plt.show()
 
-# 5.4 Standort-Ranking
+# Standort-Ranking
 plt.figure(figsize=(9, 8))
 plt.barh(ranking.index[::-1], ranking.values[::-1])
 plt.title("Standorte nach mittlerem Aufkommen")
@@ -110,7 +113,7 @@ plt.xlabel("Durchschnitt Besucher")
 plt.tight_layout()
 plt.show()
 
-# 5.5 Beispiel-Zeitreihe des staerksten Standorts
+# Beispiel-Zeitreihe des stärksten Standorts
 top_name = ranking.index[0]
 reihe = df[df["name"] == top_name].set_index("timestamp")["visitors"]
 plt.figure(figsize=(12, 4))
@@ -120,3 +123,44 @@ plt.xlabel("Zeit")
 plt.ylabel("Besucher")
 plt.tight_layout()
 plt.show()
+
+
+# Schaut ob avgDuration bereits mit visitors korreliert oder unabhängige Informationen liefert
+korr_visitors_dauer = df.groupby("name").apply(
+    lambda g: g["visitors"].corr(g["avgDuration"])
+).mean()
+print(f"mittlere Korrelation visitors~avgDuration: {korr_visitors_dauer:.2f} "
+      f"({'niedrig -> avgDuration trägt eigene Information' if korr_visitors_dauer < 0.8 else 'hoch -> unnötog zu visitors'})")
+
+''' 
+Korrelation zwischen den Standorten, einmal roh und einmal nach
+Abzug des Tages-/Wochenendprofils je Sensor (sonst wird nur der gemeinsame
+Tagesrhythmus gemessen, nicht echte gemeinsame Schwankungen/Anomalien)
+'''
+breit = df.pivot(index="timestamp", columns="name", values="visitors").interpolate().dropna()
+profil = breit.groupby([breit.index.hour, breit.index.dayofweek >= 5]).transform("mean")
+residuen = breit - profil
+
+
+def poolen_kennzahlen(daten, bezeichnung):
+    dreieck = daten.corr().where(np.triu(np.ones((daten.shape[1],) * 2), k=1).astype(bool)).stack()
+    n_komponenten_80 = int(np.argmax(
+        np.cumsum(PCA().fit(StandardScaler().fit_transform(daten)).explained_variance_ratio_) >= 0.8
+    )) + 1
+    print(f"{bezeichnung}: mittlere Korrelation {dreieck.mean():.2f}, "
+          f"Anteil Paare |r|>0.5 {(dreieck.abs() > 0.5).mean():.0%}, "
+          f"Komponenten für 80% Varianz {n_komponenten_80}/{daten.shape[1]}")
+    return (dreieck.abs() > 0.5).mean(), n_komponenten_80
+
+
+anteil_roh, komp_roh = poolen_kennzahlen(breit, "Rohdaten")
+anteil_res, komp_res = poolen_kennzahlen(residuen, "rhythmusbereinigte Residuen")
+
+print(f"\n(Rohdaten-Korrelation fällt von {anteil_roh:.0%} auf {anteil_res:.0%} starke Paare, "
+      f"sobald der gemeinsame Tagesrhythmus rausgerechnet ist. Der Rest ist die tatsächliche "
+      f"räumliche Kopplung zwischen Standorten.)")
+
+print("\nFazit:")
+print(f"avgDuration als 2. Feature:  {'ja' if korr_visitors_dauer < 0.8 else 'nein'}")
+print(f"Standorte gemeinsam poolen:  "
+      f"{'ja' if anteil_res > 0.3 and komp_res < breit.shape[1] * 0.3 else 'nein'}")
