@@ -14,7 +14,7 @@ def create_windows(data, window_size):
 def preprocess_data(df, window_size=24):
 
     #Imputation
-    df['Passanten'] = df['Passanten'].interpolate(method='linear')
+    df['Passanten'] = df['Passanten'].interpolate(method='linear')#<- überprüfen ob zeilen mit zahlen gefüllt sind wenn nicht zeilen numerierne
 
     #Skalierung
     scaler = MinMaxScaler()
