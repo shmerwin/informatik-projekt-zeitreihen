@@ -40,10 +40,13 @@ print("  betroffene Kombinationen:", int((anzahl > 1).sum()))
 print("  maximal je Kombination:  ", int(anzahl.max()))
 
 # konkretes Beispiel
-name0, zeit0 = anzahl[anzahl > 1].index[0]
-print("\nBeispiel-Duplikat (" + name0 + "):")
-print(df[(df["name"] == name0) & (df["timestamp"] == zeit0)]
-      [["name", "timestamp", "visitors", "avgDuration"]])
+if (anzahl > 1).sum() > 0:
+    name0, zeit0 = anzahl[anzahl > 1].index[0]
+    print("\nBeispiel-Duplikat (" + name0 + "):")
+    print(df[(df["name"] == name0) & (df["timestamp"] == zeit0)]
+          [["name", "timestamp", "visitors", "avgDuration"]])
+else:
+    print("\nKein Beispiel-Duplikat möglich, da die Daten bereits 100% duplikatfrei sind!")
 
 # (Sensor, Stunde) zu einer Zeile zusammenfassen
 df = df.groupby(["name", "timestamp"], as_index=False).agg(
