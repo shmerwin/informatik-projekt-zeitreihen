@@ -1,6 +1,6 @@
 ''' LSTM-Forecaster: sagt aus den letzten 24 Stunden die nächste Stunde voraus.
 Eine Stunde, in der die echte Messung stark von der Vorhersage abweicht,
-ist ein Anomalie-Kandidat (siehe evaluate.py).
+ist ein Anomalie-Kandidat.
 '''
 
 import os
@@ -22,11 +22,19 @@ tf.random.set_seed(SEED)
 random.seed(SEED)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, "..", "..", "data", "raw", "sensordata.json")
+DATA_PATH = os.path.join(BASE_DIR, "..", "..", "data", "processed",
+                         "cleaned_sensordata.json")
 MODEL_DIR = os.path.join(BASE_DIR, "..", "..", "saved_models", "forecaster")
 
 FEATURES = ["visitors", "avgDuration"]
 WINDOW_SIZE = 24
+
+# Diese zwei Standorte bestehen zu über 80 % aus ergänzten Werten
+# Ihre Reihen sind überwiegend synthetisch, deshalb fließen sie nicht ins Training ein.
+EXCLUDE_SENSORS = [
+    "Kurpark - Eingang Ludwigstraße",
+    "Friedrichstraße 1",
+]
 
 # Trainingsdaten sind Vergangenheit, Val Daten Zukunft
 TRAIN_END = pd.Timestamp("2025-07-08", tz="UTC")
@@ -37,11 +45,17 @@ BATCH_SIZE = 128
 
 
 def load_data():
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError(
+            f"{DATA_PATH} nicht gefunden. "
+            "Bitte zuerst src/preprocessing.py ausführen.")
+
     with open(DATA_PATH, encoding="utf-8") as f:
         raw = json.load(f)
 
     df = pd.DataFrame(raw["sensordata"])
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df = df[~df["name"].isin(EXCLUDE_SENSORS)]
 
     return df.sort_values(["name", "timestamp"])
 
