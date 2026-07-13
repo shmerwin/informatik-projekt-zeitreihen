@@ -15,9 +15,12 @@ Die Rohdaten liegen in Form einer JSON-Datei mit 17.578 Einzelmessungen vor. Jed
 Messung gehört zu einem von 30 Sensorstandorten in der Innenstadt und im
 Kurpark von Bad Nauheim und enthält neben dem Zeitstempel die Anzahl der
 erfassten Passanten (\texttt{visitors}) sowie deren mittlere Verweildauer
-(\texttt{avgDuration}). Der Erfassungszeitraum reicht vom 30.~Juni bis zum
-13.~Juli 2025, gemessen wird im Stundentakt. Daraus ergibt sich ein Raster von
-335 Stunden je Sensor, insgesamt also 10.050 erwartete Messpunkte.
+(\texttt{avgDuration}). Der globale Erfassungszeitraum reicht vom 30.~Juni bis
+zum 13.~Juli 2025 und umfasst 335 Stunden. Da nicht alle Sensoren während des
+gesamten Zeitraums aktiv waren, wird jede Reihe nur zwischen ihrer ersten und
+letzten Messung betrachtet. Dadurch entstehen 9.460 aktive Sensorstunden;
+weitere 590 Kombinationen des globalen Rasters liegen außerhalb der jeweiligen
+Sensorlaufzeit und werden nicht als Messlücke behandelt.
 
 \section{Datenqualität}
 \label{sec:Methode_Datenqualitaet}
@@ -41,26 +44,23 @@ widersprüchlichen Werten in das Training ein.
   \label{fig:preproc_mehrfach}
 \end{figure}
 
-\textbf{Messlücken:} Zugleich fehlen 3.208 der 10.050 Rasterstunden
-vollständig, was einem Anteil von 31,9~\% entspricht. Die Lücken verteilen
-sich sehr ungleich: Die Mehrheit der insgesamt 848 Lücken ist kurz, 657
-umfassen höchstens zwei Stunden. Daneben treten lange Ausfälle von bis zu 298
-zusammenhängenden Stunden auf
-(Abbildung~\ref{fig:preproc_lueckenlaengen}). Auffällig ist, dass in 62
-Stunden alle 30 Sensoren gleichzeitig ausfallen und nur 29 der 335 Stunden
-vollständig abgedeckt sind. Dies deutet auf Ausfälle der
-Übertragungsinfrastruktur statt auf Defekte einzelner Sensoren hin. Zwei
-Standorte sind besonders betroffen: Beim Sensor Kurpark-Eingang
-Ludwigstraße fehlen 90~\% aller Stunden, bei Friedrichstraße~1 sind es
-83~\%. Der obere Teil von Abbildung~\ref{fig:preproc_heatmap} zeigt das
-gesamte Fehlmuster im Überblick.
+\textbf{Messlücken:} Nach der Zusammenfassung der Mehrfachmessungen liegen
+6.842 gemessene Sensorstunden vor. Innerhalb der 9.460 aktiven Sensorstunden
+fehlen damit 2.618 Werte, entsprechend 27{,}7~\%. Sie bilden 830
+zusammenhängende Lücken. Davon umfassen 641 höchstens zwei Stunden; die längste
+Lücke innerhalb einer aktiven Sensorperiode dauert 18 Stunden
+(Abbildung~\ref{fig:preproc_lueckenlaengen}). In 62 Stunden liegt von keinem
+der zu diesem Zeitpunkt aktiven Sensoren eine Messung vor. Dies deutet auf
+gemeinsame Ausfälle der Übertragungsinfrastruktur hin. Die Sensoren
+Kurpark--Eingang Ludwigstraße und Friedrichstraße~1 besitzen mit 36
+beziehungsweise 59 Stunden lediglich kurze aktive Erfassungszeiträume. Zeiten
+nach ihrem letzten Messwert werden nicht künstlich ergänzt.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.8\textwidth]{Figures/preproc_lueckenlaengen.png}
-  \caption{Längenverteilung der 848 Messlücken. Die Mehrheit ist kurz und
-    kann lokal interpoliert werden, lange Ausfälle brauchen ein anderes
-    Verfahren.}
+  \caption{Längenverteilung der 830 Messlücken innerhalb der aktiven
+    Sensorperioden. 641 Lücken umfassen höchstens zwei Stunden.}
   \label{fig:preproc_lueckenlaengen}
 \end{figure}
 
@@ -68,10 +68,11 @@ gesamte Fehlmuster im Überblick.
 \label{sec:Methode_Dedup}
 
 Alle Einträge derselben Kombination aus Sensor und Stunde werden zu einem
-Messpunkt zusammengefasst. Die Passantenzahl wird dabei gemittelt und
-gerundet, die Verweildauer gemittelt. Nach diesem Schritt existiert für jeden
-Sensor genau eine Zeitreihe mit höchstens einem Wert pro Stunde.
-Einzelmessungen ohne Duplikate bleiben unverändert erhalten.
+Messpunkt zusammengefasst. Für die Passantenzahl und die Verweildauer wird
+jeweils der arithmetische Mittelwert gebildet. Dadurch verbleiben 6.842
+eindeutige gemessene Sensorstunden. Nach Abschluss der Imputation wird die
+Passantenzahl auf ganze Personen und die Verweildauer auf zwei Dezimalstellen
+gerundet.
 
 \section{Behandlung der Messlücken}
 \label{sec:Methode_Imputation}
@@ -81,8 +82,12 @@ Stundenreihen voraus. Eine Lücke innerhalb eines Fensters würde andernfalls
 unbemerkt Werte aus weit auseinanderliegenden Zeiträumen kombinieren. Die
 Lücken werden deshalb vor dem Training aufgefüllt, und zwar für jeden Sensor
 getrennt, damit jeder Standort sein individuelles Niveau und Tagesprofil
-behält. Das Verfahren richtet sich nach der Länge der Lücke und arbeitet in
-drei Stufen.
+behält. Vorher werden Training, Validierung und Test an denselben Zeitgrenzen
+wie im Forecaster getrennt. Eine lineare Interpolation überschreitet keine
+dieser Grenzen. Statistische Ersatzwerte stammen ausschließlich aus
+ursprünglich gemessenen Trainingswerten; Wochentag und Stunde werden in der
+lokalen Zeitzone \texttt{Europe/Berlin} bestimmt. Das Verfahren arbeitet in
+vier Stufen.
 
 \textbf{Stufe 1, kurze Lücken bis zwei Stunden:} Diese werden durch lineare
 Interpolation zwischen dem letzten Wert vor und dem ersten Wert nach der
@@ -95,8 +100,10 @@ Innerhalb von ein bis zwei Stunden ändert sich das Passantenaufkommen nur
 wenig, die lineare Annahme ist hier also unkritisch. Interpolation zählt zu
 den etablierten Basisverfahren für kurze Lücken in Verkehrszeitreihen
 \cite{zhang_survey_2024} und wird für stündliche Zähldaten regelmäßig
-eingesetzt und verglichen \cite{shafique_hourly_2022}. Auf diese Weise wurden
-1.188 Stunden ergänzt.
+eingesetzt und verglichen \cite{shafique_hourly_2022}. Eine Lücke wird nur
+linear gefüllt, wenn ihre vollständige Länge höchstens zwei Stunden beträgt,
+auf beiden Seiten ein Messwert vorhanden ist und alle beteiligten Stunden zum
+gleichen Datensplit gehören. Auf diese Weise werden 787 Stunden ergänzt.
 
 \textbf{Stufe 2, lange Lücken:} Bei mehr als zwei Stunden würde lineare
 Interpolation den Tagesgang einebnen, eine nächtliche Lücke erhielte dann
@@ -105,72 +112,71 @@ eingesetzt, den derselbe Sensor am gleichen Wochentag zur gleichen Stunde in
 den übrigen Wochen erreicht hat. Dieses Vorgehen entspricht der historischen
 Mittelwertbildung, die in der Verkehrsforschung seit langem für fehlende
 Zählstellendaten verwendet wird \cite{sun_traffic_2022}. Der Tages- und
-Wochenrhythmus bleibt dadurch erhalten. Diese Stufe füllte 1.495 Stunden.
+Wochenrhythmus bleibt dadurch erhalten. Diese Stufe füllt 1.539 Stunden.
 
-\textbf{Stufe 3, Notfallstufe:} Bei einem Erfassungszeitraum von zwei Wochen
+\textbf{Stufe 3, Stundenprofil:} Bei einem Erfassungszeitraum von zwei Wochen
 existieren je Kombination aus Wochentag und Stunde nur zwei mögliche
 Referenzwerte. Fehlen beide, etwa infolge der globalen Ausfälle, bleibt die
 Lücke nach Stufe~2 offen. In diesem Fall wird der Mittelwert des Sensors zur
-gleichen Uhrzeit über alle Tage eingesetzt. Dies betrifft 525 Stunden und
-konzentriert sich fast vollständig auf die zwei stark ausgefallenen
-Standorte.
+gleichen lokalen Uhrzeit über alle Trainingstage eingesetzt. Dies betrifft
+279 Stunden.
+
+\textbf{Stufe 4, Sensormittel:} Fehlt auch für die betreffende Stunde eine
+Trainingsreferenz, wird der Mittelwert aller gemessenen Trainingswerte dieses
+Sensors eingesetzt. Diese letzte Rückfallstufe betrifft 13 Stunden.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=\textwidth]{Figures/preproc_luecken_heatmap.png}
-  \caption{Messlücken vor der Bereinigung (oben) und Herkunft der ergänzten
-    Werte danach (unten). Jede Zeile ist ein Sensor, jede Spalte eine Stunde.
-    Senkrechte rote Streifen im oberen Teil zeigen Stunden, in denen alle
-    Sensoren gleichzeitig ausgefallen sind.}
+  \caption{Messstatus vor der Bereinigung (oben) und danach (unten). Rot zeigt
+    Lücken innerhalb der aktiven Sensorzeit, Blau ergänzte Werte und Grau
+    Zeiträume, in denen der betreffende Sensor nicht aktiv war.}
   \label{fig:preproc_heatmap}
 \end{figure}
 
-Der untere Teil von Abbildung~\ref{fig:preproc_heatmap} zeigt für jede
-ergänzte Stunde, welche Stufe zum Einsatz kam.
-Abbildung~\ref{fig:preproc_beispiele} veranschaulicht die Auswirkung anhand
-zweier Beispielreihen: Bei einem typischen Sensor fügen sich die ergänzten
-Werte unauffällig in den Verlauf ein, während die Reihe des Extremfalls
-Ludwigstraße nahezu vollständig aus dem wiederkehrenden Tagesmuster der
-Notfallstufe besteht. Abbildung~\ref{fig:preproc_anteil} fasst den ergänzten
-Anteil je Sensor zusammen.
+Der untere Teil von Abbildung~\ref{fig:preproc_heatmap} kennzeichnet die
+ergänzten Stunden. Abbildung~\ref{fig:preproc_beispiele} stellt eine typische
+Reihe und den Sensor mit der kürzesten aktiven Erfassungszeit gegenüber. Sie
+zeigt zugleich, dass die Reihe nach dem Ende des Sensors nicht künstlich
+fortgeschrieben wird. Abbildung~\ref{fig:preproc_anteil} fasst den ergänzten
+Anteil innerhalb der aktiven Zeit jedes Sensors zusammen.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=\textwidth]{Figures/preproc_beispielreihen.png}
-  \caption{Bereinigte Zeitreihen eines typischen Sensors (oben) und des am
-    stärksten betroffenen Sensors (unten). Markierte Punkte sind ergänzte
-    Stunden.}
+  \caption{Bereinigte Zeitreihen eines typischen Sensors (oben) und des
+    Sensors mit der kürzesten aktiven Erfassungszeit (unten). Markierte Punkte
+    sind ergänzte Stunden.}
   \label{fig:preproc_beispiele}
 \end{figure}
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.85\textwidth]{Figures/preproc_imputationsanteil.png}
-  \caption{Anteil ergänzter Stunden je Sensor, aufgeschlüsselt nach der
-    verwendeten Stufe.}
+  \caption{Anteil ergänzter Stunden innerhalb der aktiven Zeit jedes Sensors.}
   \label{fig:preproc_anteil}
 \end{figure}
 
-\section{Kritische Betrachtung der Bereinigung}
+\section[Kritische Betrachtung]{Kritische Betrachtung der Bereinigung}
 \label{sec:Methode_Kritik}
 
 Jede Imputation verändert die Daten, weshalb ihre Auswirkungen quantifiziert
 wurden. Mittelwertbasierte Verfahren glätten den Verlauf und verringern die
 Varianz einer Reihe, was als zentrale Schwäche einfacher statistischer
-Imputation gilt \cite{zhang_survey_2024}. Im vorliegenden Datensatz
-verschiebt die Bereinigung den Mittelwert einzelner Sensoren um höchstens
-13~\%, und dies ausschließlich bei den am stärksten ausgefallenen
-Standorten. Der Tagesgang bleibt weitgehend unverändert: Die Korrelation
-zwischen dem Tagesprofil vor und nach der Bereinigung liegt bei allen 30
-Sensoren über 0{,}98.
+Imputation gilt \cite{zhang_survey_2024}. Im vorliegenden Datensatz verändert
+sich der Mittelwert der Passantenzahl je Sensor um höchstens 10{,}36~\%.
+Der Tagesgang bleibt weitgehend unverändert: Die Korrelation zwischen dem
+gemessenen und dem bereinigten Tagesprofil liegt bei allen 30 Sensoren über
+0{,}99.
 
 Ein zweiter Aspekt betrifft die Anomalieerkennung selbst. Ergänzte Stunden
 wirken per Konstruktion unauffällig, ein tatsächlicher Sensorausfall stellt
 jedoch selbst ein meldenswertes Ereignis dar. Das Fehlen von Werten folgt
 hier zudem eigenen, teils blockweisen Mustern und trägt damit selbst
-Information \cite{zhang_survey_2024}. Für jede Stunde wird deshalb
-festgehalten, ob sie gemessen oder ergänzt wurde, sodass die spätere
-Bewertung ergänzte Stunden gesondert behandeln kann. Die beiden Standorte
-mit über 80~\% ergänzten Werten werden bei der Auswertung getrennt
-betrachtet, da ihre Reihen überwiegend synthetisch sind.
+Information \cite{zhang_survey_2024}. Das Feld \texttt{is\_imputed} hält für
+jede Stunde fest, ob sie gemessen oder ergänzt wurde. Der Forecaster verwendet
+ergänzte Werte weiterhin als Kontext eines 24-Stunden-Fensters, überspringt
+jedoch Fenster mit einem ergänzten Zielwert beim Training, bei der Bestimmung
+des Schwellenwerts und bei der Testauswertung. Die beiden besonders kurzen
+Sensorreihen werden wegen ihrer geringen aktiven Länge nicht verwendet.
 

@@ -22,97 +22,86 @@ def speichern(fig, name):
     print("gespeichert:", name)
 
 
-# Rohdaten laden
+# Rohdaten und Ergebnis der zentralen Preprocessing-Pipeline laden
 with open(BASIS / "data" / "raw" / "sensordata.json", encoding="utf-8") as f:
     roh = json.load(f)
 df = pd.DataFrame(roh["sensordata"])
-df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.tz_localize(None)
+df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
+with open(BASIS / "data" / "processed" / "cleaned_sensordata.json",
+          encoding="utf-8") as f:
+    clean = pd.DataFrame(json.load(f)["sensordata"])
+clean["timestamp"] = pd.to_datetime(clean["timestamp"], utc=True)
 
-# Bereinigungsschritte nachvollziehen (wie src/preprocessing.py),
-# um für jede Stunde die Herkunft ihres Wertes zu kennen
-pivot = df.pivot_table(index="timestamp", columns="name",
-                       values=["visitors", "avgDuration"], aggfunc="mean")
-pivot = pivot.resample("1h").asfreq()  # volles Stundenraster, Lücken = NaN
+zeitraster = pd.date_range(df["timestamp"].min(), df["timestamp"].max(), freq="1h")
+sensor_names = sorted(clean["name"].unique())
+aktiv = pd.DataFrame(False, index=zeitraster, columns=sensor_names)
+fehlt = aktiv.copy()
+for name, sensor in clean.groupby("name"):
+    aktiv.loc[sensor["timestamp"], name] = True
+    fehlt.loc[sensor["timestamp"], name] = sensor["is_imputed"].to_numpy(bool)
 
-fehlt = pivot["visitors"].isna()
+anteil = fehlt.sum() / aktiv.sum()
+sensoren = anteil.sort_values(ascending=False).index
 
-schritt1 = pivot.interpolate(method="linear", limit=2)
-interpoliert = fehlt & schritt1["visitors"].notna()
-
-wochentag = schritt1.index.weekday
-stunde = schritt1.index.hour
-schritt2 = schritt1.groupby([wochentag, stunde]).transform(lambda x: x.fillna(x.mean()))
-muster = schritt1["visitors"].isna() & schritt2["visitors"].notna()
-
-schritt3 = schritt2.groupby(stunde).transform(lambda x: x.fillna(x.mean()))
-notfall = schritt2["visitors"].isna() & schritt3["visitors"].notna()
-
-zeitraster = pivot.index
-sensoren = fehlt.sum().sort_values(ascending=False).index  # nach Lückenanteil sortiert
-
-print("Stunden im Raster:", len(zeitraster), "| Sensoren:", len(sensoren))
-print("Fehlende Stunden :", int(fehlt.sum().sum()),
-      "davon interpoliert:", int(interpoliert.sum().sum()),
-      "| Muster:", int(muster.sum().sum()),
-      "| Notfall:", int(notfall.sum().sum()))
+print("Aktive Sensorstunden:", int(aktiv.sum().sum()),
+      "| davon ergänzt:", int(fehlt.sum().sum()))
 
 
 # Abbildung 1: Lücken vor und nach der Bereinigung (Heatmap)
 fig, achsen = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
 
-vorher = np.array([fehlt[s].values for s in sensoren])
-achsen[0].imshow(vorher, aspect="auto", interpolation="nearest",
-                 cmap=ListedColormap(["whitesmoke", "firebrick"]))
-achsen[0].set_title("Vor der Bereinigung: fehlende Stunden je Sensor (rot)")
-
-# 0 = echt, 1 = interpoliert, 2 = Muster, 3 = Notfall
-nachher = np.zeros(vorher.shape)
+vorher = np.full((len(sensoren), len(zeitraster)), 2)
 for j, s in enumerate(sensoren):
-    nachher[j, interpoliert[s].values] = 1
-    nachher[j, muster[s].values] = 2
-    nachher[j, notfall[s].values] = 3
-achsen[1].imshow(nachher, aspect="auto", interpolation="nearest", vmin=0, vmax=3,
-                 cmap=ListedColormap(["white", "blue", "orange", "red"]))
-achsen[1].set_title("Nach der Bereinigung: Herkunft der ergänzten Werte")
+    vorher[j, aktiv[s].values] = 0
+    vorher[j, fehlt[s].values] = 1
+achsen[0].imshow(vorher, aspect="auto", interpolation="nearest",
+                 vmin=0, vmax=2,
+                 cmap=ListedColormap(["white", "firebrick", "lightgray"]))
+achsen[0].set_title("Vor der Bereinigung: Messlücken innerhalb der aktiven Zeit")
+
+nachher = np.full(vorher.shape, 2)
+for j, s in enumerate(sensoren):
+    nachher[j, aktiv[s].values] = 0
+    nachher[j, fehlt[s].values] = 1
+achsen[1].imshow(nachher, aspect="auto", interpolation="nearest", vmin=0, vmax=2,
+                 cmap=ListedColormap(["white", "steelblue", "lightgray"]))
+achsen[1].set_title("Nach der Bereinigung: gemessene und ergänzte Stunden")
 
 for ax in achsen:
     ax.set_yticks(range(len(sensoren)))
     ax.set_yticklabels(sensoren, fontsize=6.5)
 xticks = np.arange(0, len(zeitraster), 24)
 achsen[1].set_xticks(xticks)
-achsen[1].set_xticklabels([zeitraster[i].strftime("%d.%m.") for i in xticks],
+lokales_raster = zeitraster.tz_convert("Europe/Berlin")
+achsen[1].set_xticklabels([lokales_raster[i].strftime("%d.%m.") for i in xticks],
                           rotation=45, fontsize=8)
-achsen[1].set_xlabel("Datum")
+achsen[1].set_xlabel("Lokales Datum (Europe/Berlin)")
 
 legende = [plt.Rectangle((0, 0), 1, 1, color=f, ec="gray")
-           for f in ["white", "blue", "orange", "red"]]
+           for f in ["white", "steelblue", "lightgray"]]
 achsen[1].legend(legende,
-                 ["echter Messwert",
-                  "linear interpoliert (Lücke bis 2 h)",
-                  "Mittel aus gleichem Wochentag und gleicher Stunde",
-                  "Mittel aus gleicher Stunde (Notfallstufe)"],
+                 ["gemessener Wert", "ergänzter Wert", "Sensor inaktiv"],
                  loc="upper center", bbox_to_anchor=(0.5, -0.28),
-                 ncol=2, fontsize=9, frameon=False)
+                 ncol=3, fontsize=9, frameon=False)
 speichern(fig, "preproc_luecken_heatmap.png")
 
 
-# Abbildung 2: zwei Beispiel-Zeitreihen (typischer Sensor und Extremfall)
-beispiele = [sensoren[len(sensoren) // 2], sensoren[0]]
+# Abbildung 2: typische und besonders kurze Sensorreihe
+beispiele = [sensoren[len(sensoren) // 2], aktiv.sum().idxmin()]
 fig, achsen = plt.subplots(2, 1, figsize=(13, 7), sharex=True)
 for ax, s in zip(achsen, beispiele):
-    werte = schritt3["visitors"][s]
-    mi = interpoliert[s].values
-    mm = (muster[s] | notfall[s]).values
-    ax.plot(zeitraster, werte, lw=0.9, color="gray", label="Zeitreihe nach Bereinigung")
-    ax.scatter(zeitraster[mi], werte[mi], s=18, color="steelblue",
-               zorder=3, label="linear interpoliert")
-    ax.scatter(zeitraster[mm], werte[mm], s=18, color="orange",
-               zorder=3, label="aus Tagesmuster ergänzt")
-    ax.set_title(f"{s} ({fehlt[s].mean() * 100:.0f} % der Stunden ergänzt)")
+    sensor = clean[clean["name"] == s].set_index("timestamp")
+    zeit = sensor.index.tz_convert("Europe/Berlin")
+    ax.plot(zeit, sensor["visitors"], lw=0.9, color="gray",
+            label="bereinigte Zeitreihe")
+    mi = sensor["is_imputed"].to_numpy(bool)
+    ax.scatter(zeit[mi], sensor.loc[mi, "visitors"], s=18, color="steelblue",
+               zorder=3, label="ergänzte Stunde")
+    ax.set_title(f"{s}: {len(sensor)} aktive Stunden, {mi.mean() * 100:.1f} % ergänzt")
     ax.set_ylabel("Passanten pro Stunde")
     ax.legend(loc="upper right", fontsize=8)
-achsen[1].set_xlabel("Datum")
+achsen[1].set_xlabel("Lokale Zeit (Europe/Berlin)")
 speichern(fig, "preproc_beispielreihen.png")
 
 
@@ -121,17 +110,17 @@ laengen = pd.concat(
     [(~fehlt[s]).cumsum()[fehlt[s]].value_counts() for s in sensoren])
 
 # in Gruppen einteilen, damit jeder Balken gleich breit ist
-# (die Längen reichen von 1 h bis 298 h, fast alle sind aber kurz)
-gruppen = pd.cut(laengen, bins=[0, 1, 2, 6, 12, 24, 48, 320],
+# (die aktiven Lücken reichen von 1 h bis 18 h)
+gruppen = pd.cut(laengen, bins=[0, 1, 2, 6, 12, 24],
                  labels=["1 h", "2 h", "3-6 h", "7-12 h",
-                         "13-24 h", "25-48 h", "> 48 h"])
+                          "13-24 h"])
 anzahl = gruppen.value_counts().sort_index()
 
 fig, ax = plt.subplots(figsize=(9, 4.5))
 ax.bar(anzahl.index.astype(str), anzahl.values, color="blue", edgecolor="black")
 ax.axvline(1.5, color="red", ls="--", lw=1.5)  # Grenze zwischen 2 h und 3-6 h
 ax.text(1.65, anzahl.max() * 0.85,
-        "bis 2 h: lineare Interpolation\nab 3 h: Füllung aus Tagesmustern",
+        "vollständige Lücken bis 2 h: linear\nab 3 h: Trainingsprofile",
         fontsize=9, color="red")
 ax.set_xlabel("Lückenlänge")
 ax.set_ylabel("Anzahl Lücken")
@@ -139,21 +128,14 @@ ax.set_title(f"Länge der {len(laengen)} Messlücken im Rohdatensatz")
 speichern(fig, "preproc_lueckenlaengen.png")
 
 
-# Abbildung 4: Anteil ergänzter Stunden je Sensor (gestapelte Balken)
-anteile = pd.DataFrame({
-    "linear interpoliert": interpoliert.sum(),
-    "Wochentag-Stunden-Mittel": muster.sum(),
-    "Stunden-Mittel (Notfallstufe)": notfall.sum(),
-}).loc[sensoren[::-1]] / len(zeitraster) * 100 # größter Anteil oben
-
+# Abbildung 4: Anteil ergänzter Stunden je aktiver Sensorperiode
+anteile = (anteil.loc[sensoren[::-1]] * 100)
 fig, ax = plt.subplots(figsize=(9, 8))
-anteile.plot.barh(stacked=True, ax=ax, width=0.8,
-                  color=["blue", "orange", "red"])
-ax.set_xlabel("Anteil ergänzter Stunden in %")
+anteile.plot.barh(ax=ax, width=0.8, color="steelblue")
+ax.set_xlabel("Anteil ergänzter aktiver Stunden in %")
 ax.set_ylabel("")
-ax.set_title("Wie viel jeder Sensorreihe ergänzt werden musste")
+ax.set_title("Imputationsanteil innerhalb der aktiven Sensorzeit")
 ax.tick_params(axis="y", labelsize=7)
-ax.legend(loc="lower right", fontsize=9)
 speichern(fig, "preproc_imputationsanteil.png")
 
 

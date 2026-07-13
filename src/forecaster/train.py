@@ -29,8 +29,7 @@ MODEL_DIR = os.path.join(BASE_DIR, "..", "..", "saved_models", "forecaster")
 FEATURES = ["visitors", "avgDuration"]
 WINDOW_SIZE = 24
 
-# Diese zwei Standorte bestehen zu über 80 % aus ergänzten Werten
-# Ihre Reihen sind überwiegend synthetisch, deshalb fließen sie nicht ins Training ein.
+# Diese zwei Standorte besitzen mit 36 bzw. 59 Stunden zu kurze Zeitreihen.
 EXCLUDE_SENSORS = [
     "Kurpark - Eingang Ludwigstraße",
     "Friedrichstraße 1",
@@ -54,6 +53,9 @@ def load_data():
         raw = json.load(f)
 
     df = pd.DataFrame(raw["sensordata"])
+    if "is_imputed" not in df.columns:
+        raise ValueError(
+            "is_imputed fehlt. Bitte zuerst src/preprocessing.py ausführen.")
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df[~df["name"].isin(EXCLUDE_SENSORS)]
 
@@ -72,8 +74,12 @@ def make_windows(df):
         scaler.fit(group.loc[group["timestamp"] < TRAIN_END, FEATURES])
         values = scaler.transform(group[FEATURES])
         times = group["timestamp"].to_list()
+        imputed = group["is_imputed"].to_numpy(dtype=bool)
 
         for i in range(WINDOW_SIZE, len(values)):
+            # Imputierte Werte dürfen Kontext sein, aber nie Lern-/Prüfziel.
+            if imputed[i]:
+                continue
             t = times[i]
             split = ("train" if t < TRAIN_END
                      else "val" if t < VAL_END else "test")
