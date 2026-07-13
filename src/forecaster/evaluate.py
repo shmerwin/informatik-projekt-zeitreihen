@@ -1,5 +1,6 @@
 '''
-Auswertung des gespeicherten Forecasters auf dem Testzeitraum (ab 10.07.)
+Auswertung des gespeicherten Forecasters auf gemessenen Zielstunden des
+Testzeitraums (ab 10.07.). Imputierte Kontextwerte sind erlaubt.
 Schwellenwert: 99%-Quantil der Vorhersagefehler auf der Validierung,
 je Kanal getrennt (avgDuration ist deutlich verrauschter als visitors
 ein gemeinsamer Schwellenwert würde vom Rauschen dominiert).
