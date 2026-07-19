@@ -105,7 +105,7 @@ achsen[1].set_xlabel("Lokale Zeit (Europe/Berlin)")
 speichern(fig, "preproc_beispielreihen.png")
 
 
-# Abbildung 3: Wie lang sind die Lücken? (begründet die 2h-Grenze)
+# Abbildung 3: Wie lang sind die Lücken
 laengen = pd.concat(
     [(~fehlt[s]).cumsum()[fehlt[s]].value_counts() for s in sensoren])
 
@@ -120,7 +120,7 @@ fig, ax = plt.subplots(figsize=(9, 4.5))
 ax.bar(anzahl.index.astype(str), anzahl.values, color="blue", edgecolor="black")
 ax.axvline(1.5, color="red", ls="--", lw=1.5)  # Grenze zwischen 2 h und 3-6 h
 ax.text(1.65, anzahl.max() * 0.85,
-        "vollständige Lücken bis 2 h: linear\nab 3 h: Trainingsprofile",
+        "erste 2 h jeder Lücke: Fortschreibung\nRest: Trainingsprofile",
         fontsize=9, color="red")
 ax.set_xlabel("Lückenlänge")
 ax.set_ylabel("Anzahl Lücken")

@@ -2,11 +2,10 @@
 \chaptermark{Entwickelte Methode}  % short form for headlines on pages
 \label{ch:EntwickelteMethode}
 
-Dieses Kapitel beschreibt die Aufbereitung der Rohdaten zu einem Datensatz,
-der sich für das Training von Deep-Learning-Modellen eignet. Zunächst wird die
-Datengrundlage vorgestellt, anschließend werden die festgestellten
-Qualitätsprobleme sowie die zu ihrer Behebung eingesetzten Verfahren
-beschrieben und begründet.
+Dieses Kapitel beschreibt zunächst die reproduzierbare Aufbereitung der
+Rohdaten und anschließend den entwickelten forecast-basierten
+Anomaliedetektor. Methodische Entscheidungen werden von den später berichteten
+Ergebnissen getrennt dargestellt.
 
 \section{Datengrundlage}
 \label{sec:Methode_Datengrundlage}
@@ -82,55 +81,52 @@ Stundenreihen voraus. Eine Lücke innerhalb eines Fensters würde andernfalls
 unbemerkt Werte aus weit auseinanderliegenden Zeiträumen kombinieren. Die
 Lücken werden deshalb vor dem Training aufgefüllt, und zwar für jeden Sensor
 getrennt, damit jeder Standort sein individuelles Niveau und Tagesprofil
-behält. Vorher werden Training, Validierung und Test an denselben Zeitgrenzen
-wie im Forecaster getrennt. Eine lineare Interpolation überschreitet keine
-dieser Grenzen. Statistische Ersatzwerte stammen ausschließlich aus
-ursprünglich gemessenen Trainingswerten; Wochentag und Stunde werden in der
-lokalen Zeitzone \texttt{Europe/Berlin} bestimmt. Das Verfahren arbeitet in
-vier Stufen.
+behält. Die zentrale Pipeline verwendet keine lineare Interpolation. Sämtliche
+Profile werden ausschließlich aus ursprünglich gemessenen Werten vor dem
+8.~Juli 2025, 00:00~Uhr UTC, geschätzt; Validierungs-, Kalibrierungs- und
+Testwerte gehen damit nicht in die Profilbildung ein. Wochentag und Stunde
+werden in der lokalen Zeitzone \texttt{Europe/Berlin} bestimmt. Das Verfahren
+arbeitet in vier aufeinanderfolgenden Stufen.
 
-\textbf{Stufe 1, kurze Lücken bis zwei Stunden:} Diese werden durch lineare
-Interpolation zwischen dem letzten Wert vor und dem ersten Wert nach der
-Lücke geschlossen. Für einen fehlenden Wert $x_t$ zwischen den Messungen
-$x_a$ und $x_b$ gilt
+\textbf{Stufe 1, vergangenheitsbasierte Fortschreibung:} Für die ersten zwei
+Stunden jeder Lücke wird der letzte zuvor gemessene Wert desselben Sensors
+übernommen. Mit $t^{-}$ als Zeitpunkt der letzten Messung gilt
 \begin{equation}
-  x_t = x_a + \frac{t-a}{b-a}\,(x_b - x_a).
+  \hat{x}_t=x_{t^{-}}, \qquad 0<t-t^{-}\leq 2\ \text{Stunden}.
 \end{equation}
-Innerhalb von ein bis zwei Stunden ändert sich das Passantenaufkommen nur
-wenig, die lineare Annahme ist hier also unkritisch. Interpolation zählt zu
-den etablierten Basisverfahren für kurze Lücken in Verkehrszeitreihen
-\cite{zhang_survey_2024} und wird für stündliche Zähldaten regelmäßig
-eingesetzt und verglichen \cite{shafique_hourly_2022}. Eine Lücke wird nur
-linear gefüllt, wenn ihre vollständige Länge höchstens zwei Stunden beträgt,
-auf beiden Seiten ein Messwert vorhanden ist und alle beteiligten Stunden zum
-gleichen Datensplit gehören. Auf diese Weise werden 787 Stunden ergänzt.
+Diese Regel gilt auch für die ersten beiden Positionen einer längeren Lücke.
+Sie benötigt keinen nachfolgenden Messwert und verhindert dadurch, dass ein
+späteres Prognoseziel in einen früheren Modellkontext zurückgespiegelt wird.
+Der Preis ist eine kurzfristig konstante Fortsetzung; die Regel stellt daher
+einen transparenten Kompromiss und kein allgemein optimales
+Imputationsverfahren dar. Auf diese Weise werden 1.175 Sensorstunden ergänzt.
 
-\textbf{Stufe 2, lange Lücken:} Bei mehr als zwei Stunden würde lineare
-Interpolation den Tagesgang einebnen, eine nächtliche Lücke erhielte dann
-beispielsweise Werte auf Tagesniveau. Stattdessen wird der Mittelwert
-eingesetzt, den derselbe Sensor am gleichen Wochentag zur gleichen Stunde in
-den übrigen Wochen erreicht hat. Dieses Vorgehen entspricht der historischen
-Mittelwertbildung, die in der Verkehrsforschung seit langem für fehlende
-Zählstellendaten verwendet wird \cite{sun_traffic_2022}. Der Tages- und
-Wochenrhythmus bleibt dadurch erhalten. Diese Stufe füllt 1.539 Stunden.
+\textbf{Stufe 2, Wochentag-Stunden-Profil:} Für die verbleibenden Lücken wird
+der Mittelwert desselben Sensors am gleichen lokalen Wochentag und zur gleichen
+lokalen Stunde aus gemessenen Trainingswerten eingesetzt. Historische
+Zeitprofile erhalten tages- und wochenzeitabhängige Strukturen und werden auch
+für fehlende Verkehrszähldaten untersucht \cite{sun_traffic_2022}. Diese Stufe
+füllt 1.298 Sensorstunden.
 
-\textbf{Stufe 3, Stundenprofil:} Bei einem Erfassungszeitraum von zwei Wochen
-existieren je Kombination aus Wochentag und Stunde nur zwei mögliche
-Referenzwerte. Fehlen beide, etwa infolge der globalen Ausfälle, bleibt die
-Lücke nach Stufe~2 offen. In diesem Fall wird der Mittelwert des Sensors zur
-gleichen lokalen Uhrzeit über alle Trainingstage eingesetzt. Dies betrifft
-279 Stunden.
+\textbf{Stufe 3, Stundenprofil:} Existiert für eine Kombination aus Wochentag
+und Stunde keine Trainingsreferenz, wird der Mittelwert des Sensors zur
+gleichen lokalen Uhrzeit über alle Trainingstage verwendet. Dies betrifft 140
+Sensorstunden.
 
-\textbf{Stufe 4, Sensormittel:} Fehlt auch für die betreffende Stunde eine
-Trainingsreferenz, wird der Mittelwert aller gemessenen Trainingswerte dieses
-Sensors eingesetzt. Diese letzte Rückfallstufe betrifft 13 Stunden.
+\textbf{Stufe 4, Sensormittel:} Fehlt auch für die betreffende Uhrzeit eine
+Referenz, wird der Mittelwert sämtlicher gemessener Trainingswerte dieses
+Sensors eingesetzt. Diese Rückfallstufe betrifft fünf Sensorstunden. Damit
+werden alle 2.618 Lücken innerhalb der aktiven Sensorperioden geschlossen;
+Zeiten vor der ersten und nach der letzten Messung eines Sensors bleiben
+außerhalb des Datensatzes.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=\textwidth]{Figures/preproc_luecken_heatmap.png}
   \caption{Messstatus vor der Bereinigung (oben) und danach (unten). Rot zeigt
     Lücken innerhalb der aktiven Sensorzeit, Blau ergänzte Werte und Grau
-    Zeiträume, in denen der betreffende Sensor nicht aktiv war.}
+    Zeiträume, in denen der betreffende Sensor nicht aktiv war. Eigene
+    Darstellung.}
   \label{fig:preproc_heatmap}
 \end{figure}
 
@@ -146,28 +142,36 @@ Anteil innerhalb der aktiven Zeit jedes Sensors zusammen.
   \includegraphics[width=\textwidth]{Figures/preproc_beispielreihen.png}
   \caption{Bereinigte Zeitreihen eines typischen Sensors (oben) und des
     Sensors mit der kürzesten aktiven Erfassungszeit (unten). Markierte Punkte
-    sind ergänzte Stunden.}
+    sind ergänzte Stunden. Eigene Darstellung.}
   \label{fig:preproc_beispiele}
 \end{figure}
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.85\textwidth]{Figures/preproc_imputationsanteil.png}
-  \caption{Anteil ergänzter Stunden innerhalb der aktiven Zeit jedes Sensors.}
+  \caption{Anteil ergänzter Stunden innerhalb der aktiven Zeit jedes Sensors.
+    Eigene Darstellung.}
   \label{fig:preproc_anteil}
 \end{figure}
 
 \section[Kritische Betrachtung]{Kritische Betrachtung der Bereinigung}
 \label{sec:Methode_Kritik}
 
-Jede Imputation verändert die Daten, weshalb ihre Auswirkungen quantifiziert
-wurden. Mittelwertbasierte Verfahren glätten den Verlauf und verringern die
-Varianz einer Reihe, was als zentrale Schwäche einfacher statistischer
-Imputation gilt \cite{zhang_survey_2024}. Im vorliegenden Datensatz verändert
-sich der Mittelwert der Passantenzahl je Sensor um höchstens 10{,}36~\%.
-Der Tagesgang bleibt weitgehend unverändert: Die Korrelation zwischen dem
-gemessenen und dem bereinigten Tagesprofil liegt bei allen 30 Sensoren über
-0{,}99.
+Jede Imputation verändert die Daten. Mittelwertbasierte Verfahren können den
+Verlauf glätten und die Varianz verringern
+\cite{zhang_survey_2024,shafique_hourly_2022}. Im vorliegenden Datensatz ändert
+sich der Mittelwert der Passantenzahl je Sensor um höchstens 9{,}92~\%. Die
+kleinste Korrelation zwischen dem ausschließlich aus gemessenen Werten und dem
+aus allen bereinigten Werten gebildeten stündlichen Tagesprofil beträgt
+0{,}9838. Diese Kennzahlen prüfen Niveau und Profil, ersetzen aber keine
+Fehleranalyse gegen unbekannte wahre Werte in den Lücken.
+
+Die zweistündige Fortschreibung verwendet zu jedem Zeitpunkt nur die
+Vergangenheit. Die statistischen Profile dürfen dagegen innerhalb des
+Trainingsabschnitts auch chronologisch spätere Trainingsmessungen enthalten.
+Die Aufbereitung ist damit für die Out-of-Sample-Auswertung frei von
+Validierungs- und Testdaten-Leakage, jedoch nicht als rein online-kausale
+Imputation jeder frühen Trainingslücke zu verstehen.
 
 Ein zweiter Aspekt betrifft die Anomalieerkennung selbst. Ergänzte Stunden
 wirken per Konstruktion unauffällig, ein tatsächlicher Sensorausfall stellt
@@ -179,4 +183,98 @@ ergänzte Werte weiterhin als Kontext eines 24-Stunden-Fensters, überspringt
 jedoch Fenster mit einem ergänzten Zielwert beim Training, bei der Bestimmung
 des Schwellenwerts und bei der Testauswertung. Die beiden besonders kurzen
 Sensorreihen werden wegen ihrer geringen aktiven Länge nicht verwendet.
+
+\section{Forecast-basierter Anomaliedetektor}
+\label{sec:Methode_Forecaster}
+
+\subsection{Lernaufgabe und Eingaberepräsentation}
+
+Der Forecaster lernt selbstüberwacht, aus den jeweils vorhergehenden 24 Stunden
+die nächste Stunde vorherzusagen. Die nachgelagerte Anomalieentscheidung ist
+unüberwacht, da weder das Modelltraining noch die Kalibrierung reale
+Anomalieklassen verwenden. Ein einziges globales Modell wird über 28 Sensoren
+trainiert. Zwei Sensoren werden ausgeschlossen, weil vor dem Ende des
+Trainingsabschnitts weniger als 72 gemessene Zielstunden vorliegen.
+
+Beide Zielgrößen werden zunächst mit $\log(1+x)$ transformiert. Danach erfolgt
+eine robuste Skalierung je Sensor $s$ und Merkmal $f$:
+\begin{equation}
+  z_{s,t,f}=\frac{\log(1+x_{s,t,f})-\operatorname{Median}_{s,f}}
+  {\max(\operatorname{IQR}_{s,f},0{,}05)}.
+\end{equation}
+Median und Interquartilsabstand werden ausschließlich aus gemessenen
+Trainingswerten bestimmt. Jedes historische Zeitfenster besitzt acht Kanäle:
+die beiden skalierten Messgrößen, eine Maske für gemessen beziehungsweise
+imputiert sowie Sinus und Kosinus von lokaler Stunde und Wochentag und einen
+Wochenendindikator. Die fünf Kalendermerkmale der Zielstunde und eine
+Sensor-ID werden dem Modell zusätzlich übergeben.
+
+\subsection{Modellarchitektur und Training}
+
+Das LSTM verdichtet das 24-Stunden-Fenster in einen Zustandsvektor
+\cite{hochreiter1997long}. Dieser wird mit einem lernbaren Sensor-Embedding und
+den Kalendermerkmalen der Zielstunde verbunden und durch eine dichte Schicht
+geführt. Das globale Training und das Sensor-Embedding orientieren sich an
+probabilistischen globalen RNN-Forecastern \cite{salinas2020deepar}; aufgrund
+der Quantilausgabe handelt es sich jedoch nicht um eine DeepAR-Implementierung.
+
+Das Ausgabefeld enthält für \texttt{visitors} und \texttt{avgDuration} jeweils
+die Quantile $q_{0{,}1}$, $q_{0{,}5}$ und $q_{0{,}9}$. Trainiert wird mit der
+über beide Zielgrößen und Quantile gemittelten Pinball-Loss-Funktion
+\cite{koenker1978regression}. Zwei bewusst kleine Konfigurationen werden auf
+einem chronologisch nachgelagerten Tuningabschnitt verglichen. Early Stopping
+begrenzt die Epochenzahl. Anschließend wird die gewählte Konfiguration für die
+ermittelte Epochenzahl erneut auf Training und Tuning trainiert; Kalibrierungs-
+und Testdaten bleiben dabei unberührt. Das kleine Suchraster begrenzt angesichts
+des kurzen Tuningabschnitts das Risiko einer Selektionsüberanpassung
+\cite{cawley2010overfitting}.
+
+\subsection{Nichtkonformitätsscore und Intervallkalibrierung}
+
+Für Merkmal $f$ wird die Abweichung einer Beobachtung $y_{t,f}$ vom
+vorhergesagten Quantilintervall relativ zu dessen Breite bewertet:
+\begin{equation}
+ e_{t,f}=\frac{\max\{q_{0{,}1,t,f}-y_{t,f},\,
+ y_{t,f}-q_{0{,}9,t,f}\}}
+ {\max\{q_{0{,}9,t,f}-q_{0{,}1,t,f},w_{\min,f}\}},
+ \qquad s_t=\max_f e_{t,f}.
+\end{equation}
+Ein negativer Wert liegt innerhalb des ursprünglichen Quantilintervalls; ein
+positiver Wert misst die relative Überschreitung. Das Maximum $s_t$ erzeugt
+eine gemeinsame Entscheidung für beide Zielgrößen. Aus 368 gemessenen Punkten
+des getrennten Kalibrierungsabschnitts wird bei nominal
+$\alpha=0{,}01$ eine endliche empirische Quantilschwelle bestimmt. Das
+Verfahren ist an Conformalized Quantile Regression angelehnt
+\cite{romano2019cqr}, verwendet aber zusätzlich eine Breitenstandardisierung
+und ein Maximum über zwei Zielgrößen. Wegen der zeitlichen Abhängigkeit der
+Fenster wird keine verteilungsfreie 99-\%-Garantie beansprucht
+\cite{barber2023beyond}; die tatsächliche Testabdeckung wird berichtet.
+
+\subsection{Kausale Hybridregel}
+
+Starke Einzelabweichungen werden unmittelbar erkannt. Für moderate, aber
+anhaltende Abweichungen wird zusätzlich eine kausale Persistenzregel verwendet:
+\begin{equation}
+ A_t=\mathbf{1}(s_t>\tau_{\mathrm{hoch}})\ \lor\
+ \mathbf{1}\!\left(
+ \sum_{j=0}^{m-1}\mathbf{1}(s_{t-j}>\tau_{\mathrm{niedrig}})\geq k
+ \right).
+\end{equation}
+Die Regel arbeitet je Sensor, betrachtet nur aktuelle und vergangene Scores
+und wird bei einer Zeitlücke oder einem imputierten Ziel zurückgesetzt. Aus 18
+vorab festgelegten Kombinationen werden $\tau_{\mathrm{hoch}}$,
+$\tau_{\mathrm{niedrig}}$, $m$ und $k$ ausschließlich anhand synthetischer
+Anomalien im Kalibrierungsabschnitt gewählt. Zulässig sind nur Regeln mit
+höchstens 1~\% Alarmen auf den unveränderten Kalibrierungswerten. Optimiert wird
+der über die Anomalietypen gleichgewichtete Ereignis-F1; die Injektionen des
+Testabschnitts beeinflussen diese Auswahl nicht.
+
+\subsection{Umgang mit imputierten Zielwerten}
+
+Imputierte Werte dürfen als markierter Kontext in ein Zeitfenster eingehen,
+werden aber nicht als Ziel für Training, Modellauswahl, Kalibrierung oder
+Forecast-Metriken verwendet. Eine fehlende Originalmessung wird unabhängig vom
+Forecast als Datenqualitätsereignis ausgegeben. Dadurch wird ein aus einem
+Zeitprofil erzeugter Ersatzwert weder als reguläre Beobachtung noch als
+bestätigte Verhaltensanomalie fehlinterpretiert.
 

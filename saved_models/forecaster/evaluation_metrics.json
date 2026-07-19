@@ -1,0 +1,70 @@
+{
+  "forecast": {
+    "visitors": {
+      "mae": 12.114284072200622,
+      "rmse": 22.962147430405864,
+      "mase": 0.6219552386049824,
+      "relative_mae_vs_t_minus_24_test": 0.7450345591328721,
+      "seasonal_naive_test_mae": 16.26002971768202,
+      "mase_training_scale": 19.47774264169302,
+      "interval_coverage": 0.9962852897473997,
+      "mean_interval_width": 224.98683525867747
+    },
+    "avgDuration": {
+      "mae": 4.124385195217832,
+      "rmse": 7.54021266757766,
+      "mase": 0.8545981801308102,
+      "relative_mae_vs_t_minus_24_test": 0.8211944759996335,
+      "seasonal_naive_test_mae": 5.022421991084696,
+      "mase_training_scale": 4.826110435417178,
+      "interval_coverage": 0.9955423476968797,
+      "mean_interval_width": 98.53816494653204
+    }
+  },
+  "joint_interval_coverage": 0.9925705794947994,
+  "detector": {
+    "config": {
+      "high_alpha": 0.01,
+      "point_threshold": 0.7486377208968634,
+      "low_alpha": 0.1,
+      "low_threshold": 0.30819340445747195,
+      "persistence_window": 4,
+      "required_exceedances": 3,
+      "selection_period": [
+        "2025-07-09 00:00:00+00:00",
+        "2025-07-10 00:00:00+00:00"
+      ],
+      "max_calibration_alarm_rate": 0.01
+    },
+    "calibration_selection": {
+      "detector": {
+        "high_alpha": 0.01,
+        "point_threshold": 0.7486377208968634,
+        "low_alpha": 0.1,
+        "low_threshold": 0.30819340445747195,
+        "persistence_window": 4,
+        "required_exceedances": 3
+      },
+      "calibration_alarm_count": 2,
+      "calibration_alarm_rate": 0.005434782608695652,
+      "macro_event_f1": 0.745602094082112,
+      "macro_incremental_event_recall": 0.6383333333333333,
+      "event_f1_by_type": {
+        "spike": 0.7880141909882559,
+        "dip": 0.7783925749999164,
+        "level_shift": 0.9053077357425182,
+        "drift": 0.7420102543941552,
+        "stuck_at": 0.5142857142857142
+      }
+    }
+  },
+  "counts": {
+    "measured_test_points": 1346,
+    "forecast_candidates": 15,
+    "missing_measurements": 1333,
+    "forecast_events": 11,
+    "missing_events": 275
+  },
+  "real_labels": null,
+  "limitation": "Ohne bestätigte Ereignis- oder Sensorlabels sind statistische Abweichungen nur Anomalie-Kandidaten."
+}
