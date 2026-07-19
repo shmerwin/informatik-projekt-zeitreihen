@@ -1,71 +1,292 @@
-'''
-Auswertung des gespeicherten Forecasters auf gemessenen Zielstunden des
-Testzeitraums (ab 10.07.). Imputierte Kontextwerte sind erlaubt.
-Schwellenwert: 99%-Quantil der Vorhersagefehler auf der Validierung,
-je Kanal getrennt (avgDuration ist deutlich verrauschter als visitors
-ein gemeinsamer Schwellenwert würde vom Rauschen dominiert).
-Eine Stunde gilt als Anomalie, wenn mindestens ein Kanal darüber liegt.
-'''
-import os
+"""Evaluiert Forecasts und schreibt nachvollziehbare Anomalie-Kandidaten.
 
+Der aufwendige synthetische Test liegt separat in ``src.forecaster.benchmark``.
+Optional können bestätigte Labels als CSV mit ``sensor,time,label`` übergeben
+werden. Ohne solche Labels sind die Treffer Kandidaten, keine Ground Truth.
+"""
+
+import argparse
+import json
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from tensorflow.keras import models
+import tensorflow as tf
+from sklearn.metrics import (
+    average_precision_score, confusion_matrix, f1_score, precision_score,
+    recall_score, roc_auc_score,
+)
 
-from train import FEATURES, MODEL_DIR, load_data, make_windows
+from .common import (
+    DATA_PATH, FEATURES, MODEL_DIR, anomaly_scores, conformal_bounds,
+    inverse_values, load_data, make_windows, predict_quantiles, split_masks,
+)
+from .detector import detector_output, event_ids
 
-THRESHOLD_QUANTILE = 0.99
 
-model = models.load_model(os.path.join(MODEL_DIR, "forecaster.keras"))
+def _forecast_metrics(actual, forecast, baseline, lower, upper, mase_scale):
+    result = {}
+    for i, feature in enumerate(FEATURES):
+        error = actual[:, i] - forecast[:, i]
+        mae = np.mean(np.abs(error))
+        baseline_mae = np.mean(np.abs(actual[:, i] - baseline[:, i]))
+        result[feature] = {
+            "mae": float(mae),
+            "rmse": float(np.sqrt(np.mean(error ** 2))),
+            "mase": float(mae / max(mase_scale[i], 1e-9)),
+            "relative_mae_vs_t_minus_24_test": float(
+                mae / max(baseline_mae, 1e-9)
+            ),
+            "seasonal_naive_test_mae": float(baseline_mae),
+            "mase_training_scale": float(mase_scale[i]),
+            "interval_coverage": float(np.mean(
+                (actual[:, i] >= lower[:, i])
+                & (actual[:, i] <= upper[:, i])
+            )),
+            "mean_interval_width": float(np.mean(upper[:, i] - lower[:, i])),
+        }
+    return result
 
-df = load_data()
-data = make_windows(df)
 
-# Vorhersagefehler je Kanal
-val_errors = np.abs(model.predict(data["val"]["X"], verbose=0)
-                    - data["val"]["y"])
-test_errors = np.abs(model.predict(data["test"]["X"], verbose=0)
-                     - data["test"]["y"])
+def _classification_metrics(labels, alarms, scores):
+    labels, alarms = np.asarray(labels, bool), np.asarray(alarms, bool)
+    tn, fp, fn, tp = confusion_matrix(labels, alarms, labels=[False, True]).ravel()
+    result = {
+        "confusion_matrix": {
+            "tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp),
+        },
+        "precision": float(precision_score(labels, alarms, zero_division=0)),
+        "recall": float(recall_score(labels, alarms, zero_division=0)),
+        "f1": float(f1_score(labels, alarms, zero_division=0)),
+    }
+    if len(np.unique(labels)) == 2:
+        result["roc_auc"] = float(roc_auc_score(labels, scores))
+        result["pr_auc"] = float(average_precision_score(labels, scores))
+    else:
+        result["roc_auc"] = result["pr_auc"] = None
+    return result
 
-thresholds = np.quantile(val_errors, THRESHOLD_QUANTILE, axis=0)
-print("Schwellenwerte je Kanal (skaliert):",
-      dict(zip(FEATURES, thresholds.round(3))))
 
-results = pd.DataFrame({
-    "sensor": data["test"]["sensor"],
-    "time": data["test"]["time"],
-})
-for i, feature in enumerate(FEATURES):
-    results[f"error_{feature}"] = test_errors[:, i]
-results["anomaly"] = (test_errors > thresholds).any(axis=1)
+def _evaluate_labels(path, candidates):
+    labels = pd.read_csv(path)
+    if "timestamp" in labels and "time" not in labels:
+        labels = labels.rename(columns={"timestamp": "time"})
+    if not {"sensor", "time", "label"}.issubset(labels.columns):
+        raise ValueError("Label-CSV benötigt sensor,time,label")
+    filled = labels["label"].notna() & labels["label"].astype(str).str.strip().ne("")
+    labels = labels.loc[filled].copy()
+    if labels.empty:
+        raise ValueError("Die Label-CSV enthält keine ausgefüllten Labels")
+    labels["time"] = pd.to_datetime(labels["time"], utc=True)
+    truth = labels["label"].astype(str).str.strip().str.lower().map({
+        "1": True, "1.0": True, "true": True, "anomaly": True,
+        "0": False, "0.0": False, "false": False, "normal": False,
+    })
+    if truth.isna().any():
+        raise ValueError("label muss 0/1, true/false oder normal/anomaly sein")
+    labels["label"] = truth.astype(bool)
+    joined = candidates.merge(labels, on=["sensor", "time"], how="inner")
+    if joined.empty:
+        raise ValueError("Keine Labels passen zum Testzeitraum")
+    return {
+        "matched_rows": len(joined),
+        "metrics": _classification_metrics(
+            joined["label"], joined["anomaly"],
+            joined["detector_score"].fillna(1.0).to_numpy(),
+        ),
+    }
 
-print(f"\nAnomalien im Testzeitraum: {int(results['anomaly'].sum())} "
-      f"von {len(results)} Stunden ({results['anomaly'].mean():.1%})")
 
-print("\nSensoren mit den meisten Anomalien:")
-print(results[results["anomaly"]].groupby("sensor").size()
-      .sort_values(ascending=False).head(5).to_string())
+def _event_table(candidates, event_column, alert_type):
+    table = candidates.dropna(subset=[event_column]).groupby(event_column).agg(
+        sensor=("sensor", "first"),
+        start=("time", "min"),
+        end=("time", "max"),
+        duration_hours=("time", "size"),
+        trigger_features=("trigger_features", lambda values: ",".join(
+            dict.fromkeys(value for value in values if value)
+        )),
+        max_joint_score=("joint_score", "max"),
+        min_empirical_p_value=("p_value", "min"),
+        max_context_imputed_fraction=("context_imputed_fraction", "max"),
+    ).reset_index(drop=True)
+    table.insert(0, "event_id", [
+        f"{alert_type}-{i + 1}" for i in range(len(table))
+    ])
+    table.insert(1, "alert_type", alert_type)
+    return table
 
-results.to_csv(os.path.join(MODEL_DIR, "anomalies.csv"), index=False)
-print("\nGespeichert:", os.path.join(MODEL_DIR, "anomalies.csv"))
 
-# Beispielplot: Sensor mit den meisten Anomalien
-top_sensor = results[results["anomaly"]].groupby("sensor").size().idxmax()
-series = (df[df["name"] == top_sensor]
-          .drop_duplicates("timestamp")
-          .set_index("timestamp")["visitors"])
-hits = results[(results["sensor"] == top_sensor) & results["anomaly"]]
-test_start = results["time"].min()
+def _save_example_plot(candidates, model_dir):
+    plot = candidates[candidates["actual_visitors"].notna()]
+    if plot.empty:
+        return
+    sensor = plot.groupby("sensor")["forecast_anomaly"].sum().idxmax()
+    plot = plot[plot["sensor"] == sensor]
+    plt.figure(figsize=(12, 4))
+    plt.fill_between(
+        plot["time"], plot["lower_visitors"], plot["upper_visitors"],
+        alpha=0.2, label="Intervall",
+    )
+    plt.plot(plot["time"], plot["actual_visitors"], label="Ist")
+    plt.plot(plot["time"], plot["forecast_visitors"], label="Prognose")
+    hits = plot[plot["forecast_anomaly"]]
+    plt.scatter(
+        hits["time"], hits["actual_visitors"], color="red",
+        label="Kandidat", zorder=3,
+    )
+    plt.title(sensor)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(model_dir / "anomalies_example.png", dpi=150)
+    plt.close()
 
-plt.figure(figsize=(12, 4))
-plt.plot(series[series.index >= test_start], label="visitors")
-plt.scatter(hits["time"], series.reindex(hits["time"]).values,
-            color="red", zorder=3, label="Anomalie")
-plt.title(f"Forecaster-Anomalien im Testzeitraum: {top_sensor}")
-plt.xlabel("Zeit")
-plt.ylabel("Besucher")
-plt.legend()
-plt.tight_layout()
-plt.savefig(os.path.join(MODEL_DIR, "anomalies_example.png"), dpi=150)
-plt.show()
+
+def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
+    model_dir = Path(model_dir)
+    with open(model_dir / "model_bundle.json", encoding="utf-8") as file:
+        bundle = json.load(file)
+    df = load_data(data_path)
+    data = make_windows(df, bundle["scaler"])
+    masks = split_masks(data)
+    test = {name: values[masks["test_all"]] for name, values in data.items()}
+    observed = test["observed"]
+
+    model = tf.keras.models.load_model(
+        model_dir / bundle["model"], compile=False
+    )
+    quantiles = predict_quantiles(model, test)
+    raw_quantiles = inverse_values(
+        quantiles, test["sensor_id"], bundle["scaler"]
+    )
+    lower_scaled, upper_scaled = conformal_bounds(
+        quantiles, bundle["calibrator"]
+    )
+    lower = inverse_values(lower_scaled, test["sensor_id"], bundle["scaler"])
+    upper = inverse_values(upper_scaled, test["sensor_id"], bundle["scaler"])
+
+    feature_score = np.full((len(observed), len(FEATURES)), np.nan)
+    joint_score = np.full(len(observed), np.nan)
+    p_value = np.full(len(observed), np.nan)
+    feature_score[observed], joint_score[observed], p_value[observed] = anomaly_scores(
+        test["y_scaled"][observed], quantiles[observed], bundle["calibrator"]
+    )
+    forecast_alarm, persistence_count, detector_score = detector_output(
+        joint_score, test["sensor"], test["time"], observed, bundle["detector"]
+    )
+    missing_alarm = ~observed
+
+    candidates = pd.DataFrame({
+        "sensor": test["sensor"],
+        "time": pd.to_datetime(test["time"], utc=True),
+        "context_imputed_fraction": test["imputed_fraction"],
+        "joint_score": joint_score,
+        "p_value": p_value,
+        "persistence_count": persistence_count,
+        "detector_score": detector_score,
+        "forecast_anomaly": forecast_alarm,
+        "missing_measurement": missing_alarm,
+        "anomaly": forecast_alarm | missing_alarm,
+    })
+    for i, feature in enumerate(FEATURES):
+        candidates[f"actual_{feature}"] = np.where(
+            observed, test["y_raw"][:, i], np.nan
+        )
+        candidates[f"forecast_{feature}"] = raw_quantiles[:, i, 1]
+        candidates[f"lower_{feature}"] = lower[:, i]
+        candidates[f"upper_{feature}"] = upper[:, i]
+        candidates[f"score_{feature}"] = feature_score[:, i]
+
+    trigger = []
+    for row in range(len(candidates)):
+        trigger.append(",".join(
+            feature for i, feature in enumerate(FEATURES)
+            if observed[row]
+            and feature_score[row, i] > bundle["detector"]["point_threshold"]
+        ))
+        if forecast_alarm[row] and not trigger[-1]:
+            trigger[-1] = "persistence"
+    candidates["trigger_features"] = trigger
+    candidates["alert_type"] = np.where(
+        forecast_alarm, "forecast", np.where(missing_alarm, "missing", "")
+    )
+    candidates["forecast_event_id"] = event_ids(
+        candidates.assign(anomaly=forecast_alarm)
+    )
+    candidates["missing_event_id"] = event_ids(
+        candidates.assign(anomaly=missing_alarm)
+    )
+
+    forecast = _forecast_metrics(
+        test["y_raw"][observed], raw_quantiles[observed, :, 1],
+        test["seasonal"][observed], lower[observed], upper[observed],
+        np.mean(np.abs(
+            data["y_raw"][masks["train"]] - data["seasonal"][masks["train"]]
+        ), axis=0),
+    )
+    joint_coverage = float(np.mean(
+        ((test["y_raw"][observed] >= lower[observed])
+         & (test["y_raw"][observed] <= upper[observed])).all(axis=1)
+    ))
+    label_result = _evaluate_labels(labels_path, candidates) if labels_path else None
+    metrics = {
+        "forecast": forecast,
+        "joint_interval_coverage": joint_coverage,
+        "detector": {
+            "config": bundle["detector"],
+            "calibration_selection": bundle["detector_selection"]["selected"],
+        },
+        "counts": {
+            "measured_test_points": int(observed.sum()),
+            "forecast_candidates": int(forecast_alarm.sum()),
+            "missing_measurements": int(missing_alarm.sum()),
+            "forecast_events": int(candidates["forecast_event_id"].nunique()),
+            "missing_events": int(candidates["missing_event_id"].nunique()),
+        },
+        "real_labels": label_result,
+        "limitation": (
+            "Ohne bestätigte Ereignis- oder Sensorlabels sind statistische "
+            "Abweichungen nur Anomalie-Kandidaten."
+        ),
+    }
+
+    candidates.to_csv(model_dir / "anomalies.csv", index=False)
+    candidates[["sensor", "time"]].assign(
+        label="", label_type="", comment=""
+    ).to_csv(model_dir / "labels_template.csv", index=False)
+    pd.concat([
+        _event_table(candidates, "forecast_event_id", "forecast"),
+        _event_table(candidates, "missing_event_id", "missing"),
+    ], ignore_index=True).to_csv(model_dir / "anomaly_events.csv", index=False)
+    with open(
+        model_dir / "evaluation_metrics.json", "w", encoding="utf-8"
+    ) as file:
+        json.dump(metrics, file, ensure_ascii=False, indent=2, allow_nan=False)
+    _save_example_plot(candidates, model_dir)
+
+    print(
+        f"Forecast-Kandidaten: {int(forecast_alarm.sum())} Punkte in "
+        f"{int(candidates['forecast_event_id'].nunique())} Ereignissen"
+    )
+    print(f"Fehlende Messungen: {int(missing_alarm.sum())}")
+    print(f"Gemeinsame Intervallabdeckung: {joint_coverage:.1%}")
+    print("Synthetischer Test separat: python -m src.forecaster.benchmark")
+    print(f"Ereignisdetails: {model_dir / 'anomaly_events.csv'}")
+    return metrics
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", type=Path, default=DATA_PATH)
+    parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
+    parser.add_argument("--labels", type=Path)
+    args = parser.parse_args()
+    evaluate(args.data, args.model_dir, args.labels)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,138 +1,174 @@
-''' LSTM-Forecaster: sagt aus den letzten 24 Stunden die nächste Stunde voraus.
-Eine Stunde, in der die echte Messung stark von der Vorhersage abweicht,
-ist ein Anomalie-Kandidat.
-'''
+"""Trainiert und kalibriert den LSTM-Forecaster.
 
-import os
+Aufruf aus dem Projektordner: ``python -m src.forecaster.train``
+"""
+
+import argparse
 import json
-import random
+from pathlib import Path
 
-import numpy as np
-import pandas as pd
-import tensorflow as tf
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from tensorflow.keras import layers, models
-from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.preprocessing import MinMaxScaler
+import numpy as np
+import tensorflow as tf
 
-# Reproduzierbarkeit
-SEED = 42
-np.random.seed(SEED)
-tf.random.set_seed(SEED)
-random.seed(SEED)
+from .common import (
+    ALPHA, CALIBRATION_END, DATA_PATH, FEATURES, MODEL_DIR, QUANTILES,
+    SEED, TRAIN_END, TUNE_END, build_model, fit_calibrator,
+    fit_scaler, inverse_values, load_data, make_windows, model_inputs,
+    predict_quantiles, set_seed, split_masks,
+)
+from .benchmark import select_detector
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, "..", "..", "data", "processed",
-                         "cleaned_sensordata.json")
-MODEL_DIR = os.path.join(BASE_DIR, "..", "..", "saved_models", "forecaster")
 
-FEATURES = ["visitors", "avgDuration"]
-WINDOW_SIZE = 24
-
-# Diese zwei Standorte besitzen mit 36 bzw. 59 Stunden zu kurze Zeitreihen.
-EXCLUDE_SENSORS = [
-    "Kurpark - Eingang Ludwigstraße",
-    "Friedrichstraße 1",
+# Zwei kleine Konfigurationen reichen für diesen sehr kurzen Datensatz.
+# Eine große Suche würde die 24 Tuningstunden nur überanpassen.
+KANDIDATEN = [
+    {"name": "small", "units": 32, "dense": 32, "embedding": 4,
+     "dropout": 0.10, "lr": 1e-3},
+    {"name": "regularized", "units": 64, "dense": 48, "embedding": 6,
+     "dropout": 0.25, "lr": 5e-4},
 ]
 
-# Trainingsdaten sind Vergangenheit, Val Daten Zukunft
-TRAIN_END = pd.Timestamp("2025-07-08", tz="UTC")
-VAL_END = pd.Timestamp("2025-07-10", tz="UTC")
 
-EPOCHS = 100
-BATCH_SIZE = 128
-
-
-def load_data():
-    if not os.path.exists(DATA_PATH):
-        raise FileNotFoundError(
-            f"{DATA_PATH} nicht gefunden. "
-            "Bitte zuerst src/preprocessing.py ausführen.")
-
-    with open(DATA_PATH, encoding="utf-8") as f:
-        raw = json.load(f)
-
-    df = pd.DataFrame(raw["sensordata"])
-    if "is_imputed" not in df.columns:
-        raise ValueError(
-            "is_imputed fehlt. Bitte zuerst src/preprocessing.py ausführen.")
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = df[~df["name"].isin(EXCLUDE_SENSORS)]
-
-    return df.sort_values(["name", "timestamp"])
+def _mae_je_feature(ist, prognose):
+    return {
+        feature: float(np.mean(np.abs(ist[:, i] - prognose[:, i])))
+        for i, feature in enumerate(FEATURES)
+    }
 
 
-def make_windows(df):
-    # Erzeugt je Sensor Fenster von 24 Stunden und 1 Stunde Vorhersage
-    data = {split: {"X": [], "y": [], "sensor": [], "time": []}
-            for split in ("train", "val", "test")}
+def train(data_path=DATA_PATH, model_dir=MODEL_DIR, max_epochs=100):
+    model_dir = Path(model_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, group in df.groupby("name"):
-        # je Sensor skalieren
-        # gefittet nur auf dem Trainingszeitraum
-        scaler = MinMaxScaler()
-        scaler.fit(group.loc[group["timestamp"] < TRAIN_END, FEATURES])
-        values = scaler.transform(group[FEATURES])
-        times = group["timestamp"].to_list()
-        imputed = group["is_imputed"].to_numpy(dtype=bool)
+    df = load_data(data_path)
+    scaler = fit_scaler(df)
+    daten = make_windows(df, scaler)
+    masken = split_masks(daten)
+    for split in ["train", "tune", "calibration", "test"]:
+        if not masken[split].any():
+            raise ValueError(f"Split '{split}' enthält keine gemessenen Ziele")
 
-        for i in range(WINDOW_SIZE, len(values)):
-            # Imputierte Werte dürfen Kontext sein, aber nie Lern-/Prüfziel.
-            if imputed[i]:
-                continue
-            t = times[i]
-            split = ("train" if t < TRAIN_END
-                     else "val" if t < VAL_END else "test")
-            data[split]["X"].append(values[i - WINDOW_SIZE:i])
-            data[split]["y"].append(values[i])
-            data[split]["sensor"].append(name)
-            data[split]["time"].append(t)
+    tune_ist = daten["y_raw"][masken["tune"]]
+    baseline_mae = _mae_je_feature(
+        tune_ist, daten["seasonal"][masken["tune"]]
+    )
+    berichte = []
+    verlaufe = {}
 
-    for d in data.values():
-        d["X"] = np.array(d["X"], dtype="float32")
-        d["y"] = np.array(d["y"], dtype="float32")
+    # Auswahl ausschließlich auf dem Tuning-Tag.
+    for nummer, parameter in enumerate(KANDIDATEN):
+        tf.keras.backend.clear_session()
+        set_seed(SEED + nummer)
+        modell = build_model(
+            len(scaler["sensors"]), daten["history"].shape[-1], parameter
+        )
+        verlauf = modell.fit(
+            model_inputs(daten, masken["train"]),
+            daten["y_scaled"][masken["train"]],
+            validation_data=(
+                model_inputs(daten, masken["tune"]),
+                daten["y_scaled"][masken["tune"]],
+            ),
+            epochs=max_epochs,
+            batch_size=128,
+            verbose=2,
+            callbacks=[tf.keras.callbacks.EarlyStopping(
+                patience=10, min_delta=1e-4, restore_best_weights=True
+            )],
+        )
+        quantile = predict_quantiles(modell, daten, masken["tune"])
+        q50 = inverse_values(quantile[..., 1], daten["sensor_id"][masken["tune"]], scaler)
+        mae = _mae_je_feature(tune_ist, q50)
+        vergleich = float(np.mean([
+            mae[feature] / max(baseline_mae[feature], 1e-9)
+            for feature in FEATURES
+        ]))
+        beste_epoche = int(np.argmin(verlauf.history["val_loss"])) + 1
+        berichte.append({
+            "parameter": parameter,
+            "best_epoch": beste_epoche,
+            "mae": mae,
+            "mean_mae_relative_to_seasonal": vergleich,
+        })
+        verlaufe[parameter["name"]] = verlauf.history["val_loss"]
 
-    return data
+    bestes = min(berichte, key=lambda x: x["mean_mae_relative_to_seasonal"])
+
+    # Danach erneutes Training auf Train + Tuning. Der Kalibrierungstag bleibt
+    # unangetastet und bestimmt ausschließlich die Anomalieschwelle.
+    refit = masken["train"] | masken["tune"]
+    tf.keras.backend.clear_session()
+    set_seed()
+    modell = build_model(
+        len(scaler["sensors"]), daten["history"].shape[-1], bestes["parameter"]
+    )
+    modell.fit(
+        model_inputs(daten, refit), daten["y_scaled"][refit],
+        epochs=bestes["best_epoch"], batch_size=128, verbose=2,
+    )
+
+    cal_prognose = predict_quantiles(modell, daten, masken["calibration"])
+    kalibrierung = fit_calibrator(
+        daten["y_scaled"][masken["calibration"]], cal_prognose, ALPHA
+    )
+
+    bundle = {
+        "model": "forecaster.keras",
+        "features": FEATURES,
+        "quantiles": QUANTILES,
+        "window_size": 24,
+        "splits": {
+            "train_end": str(TRAIN_END), "tune_end": str(TUNE_END),
+            "calibration_end": str(CALIBRATION_END),
+        },
+        "scaler": scaler,
+        "calibrator": kalibrierung,
+        "selected": bestes,
+        "selection": {
+            "seasonal_mae": baseline_mae,
+            "candidates": berichte,
+        },
+        "sample_counts": {name: int(mask.sum()) for name, mask in masken.items()},
+    }
+    # Die Detektorregel wird mit künstlichen Ereignissen ausschließlich im
+    # Kalibrierungsabschnitt gewählt. Der Testabschnitt bleibt hierfür unberührt.
+    detektor, detektor_auswahl = select_detector(df, daten, modell, bundle)
+    bundle["detector"] = detektor
+    bundle["detector_selection"] = detektor_auswahl
+
+    modell.save(model_dir / "forecaster.keras")
+    with open(model_dir / "model_bundle.json", "w", encoding="utf-8") as datei:
+        json.dump(bundle, datei, ensure_ascii=False, indent=2, allow_nan=False)
+
+    plt.figure(figsize=(8, 4))
+    for name, werte in verlaufe.items():
+        plt.plot(werte, label=name)
+    plt.xlabel("Epoche")
+    plt.ylabel("Validation Quantile-Loss")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(model_dir / "training_history.png", dpi=150)
+    plt.close()
+
+    print(f"Gewählt: {bestes['parameter']['name']} "
+          f"(Epoche {bestes['best_epoch']})")
+    print(f"Gemeinsame Conformal-Schwelle: {kalibrierung['threshold']:.3f}")
+    print(f"Gewählte Detektorschwelle: {detektor['point_threshold']:.3f}")
+    return bundle
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", type=Path, default=DATA_PATH)
+    parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
+    parser.add_argument("--max-epochs", type=int, default=100)
+    args = parser.parse_args()
+    train(args.data, args.model_dir, args.max_epochs)
 
 
 if __name__ == "__main__":
-    df = load_data()
-    data = make_windows(df)
-
-    print("Train shape:", data["train"]["X"].shape)
-    print("Val shape  :", data["val"]["X"].shape)
-    print("Test shape :", data["test"]["X"].shape)
-
-    model = models.Sequential([
-        layers.Input(shape=(WINDOW_SIZE, len(FEATURES))),
-        layers.LSTM(64),
-        layers.Dense(len(FEATURES))
-    ])
-
-    model.compile(optimizer="adam", loss="mse")
-    model.summary()
-
-    history = model.fit(
-        data["train"]["X"], data["train"]["y"],
-        validation_data=(data["val"]["X"], data["val"]["y"]),
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        verbose=2,
-        callbacks=[EarlyStopping(patience=8, restore_best_weights=True)]
-    )
-
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    model.save(os.path.join(MODEL_DIR, "forecaster.keras"))
-    print("Modell gespeichert:", os.path.join(MODEL_DIR, "forecaster.keras"))
-
-    # Trainingsverlauf
-    plt.figure(figsize=(8, 4))
-    plt.plot(history.history["loss"], label="Train Loss")
-    plt.plot(history.history["val_loss"], label="Val Loss")
-    plt.title("Trainingsverlauf")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss (MSE)")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(os.path.join(MODEL_DIR, "training_history.png"), dpi=150)
-    plt.show()
+    main()

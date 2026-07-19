@@ -1,140 +1,158 @@
+"""Kausale Aufbereitung der stündlichen Sensordaten."""
+
+import argparse
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 
 
 TRAIN_END = pd.Timestamp("2025-07-08", tz="UTC")
-VAL_END = pd.Timestamp("2025-07-10", tz="UTC")
+FEATURES = ["visitors", "avgDuration"]
 
 
-def process_and_impute_full_data(filepath):
-    # JSON-Datei einlesen
-    with open(filepath, 'r', encoding='utf-8') as f:
-        raw_json = json.load(f)
+def _profil_auf_zeitachse(referenz, ziel_index, gruppe):
+    """Überträgt ein ausschließlich aus Trainingsdaten gelerntes Profil."""
+    lokale_referenz = referenz.index.tz_convert("Europe/Berlin")
+    lokale_ziele = ziel_index.tz_convert("Europe/Berlin")
 
-    df = pd.DataFrame(raw_json['sensordata'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
-
-    # Statische Infos (lon, lat, locationId etc.) pro Sensor sichern
-    meta_cols = [c for c in df.columns if c not in ['timestamp', 'visitors', 'avgDuration']]
-    sensor_meta = df[meta_cols].drop_duplicates(subset=['name'])
-
-    # Pivot-Tabelle: (Zeit Index, Sensoren Spalten)
-    # Sensor lücken separat füllen!
-    df_pivot = df.pivot_table(index='timestamp', columns='name',
-                              values=['visitors', 'avgDuration'], aggfunc='mean')
-
-    # Auf vollen Stundentakt auffüllen (erzeugt NaNs bei Lücken)
-    df_pivot = df_pivot.resample('1h').asfreq()
-
-    # Nur die tatsächliche Laufzeit jedes Sensors gilt als aktiv.
-    sensor_ranges = df.groupby('name')['timestamp'].agg(['min', 'max'])
-    active = pd.DataFrame(False, index=df_pivot.index, columns=df_pivot.columns)
-    for feature, name in df_pivot.columns:
-        active[(feature, name)] = (
-            (df_pivot.index >= sensor_ranges.loc[name, 'min'])
-            & (df_pivot.index <= sensor_ranges.loc[name, 'max'])
+    if gruppe == "wochentag_stunde":
+        profil = referenz.groupby(
+            [lokale_referenz.weekday, lokale_referenz.hour]
+        ).mean()
+        schluessel = pd.MultiIndex.from_arrays(
+            [lokale_ziele.weekday, lokale_ziele.hour]
         )
-    measured = df_pivot.where(active)
-    was_missing = measured.isna() & active
+    else:
+        profil = referenz.groupby(lokale_referenz.hour).mean()
+        schluessel = lokale_ziele.hour
 
-    # 1. Nur vollständig kurze Lücken interpolieren, getrennt je Datensplit.
-    def is_short_gap(series):
-        missing = series.isna()
-        gap = missing.ne(missing.shift()).cumsum()
-        return missing & missing.groupby(gap).transform('sum').le(2)
+    ergebnis = profil.reindex(schluessel)
+    ergebnis.index = ziel_index
+    return ergebnis
 
-    short_gaps = measured.apply(is_short_gap)
-    df_pivot = measured.copy()
-    split_masks = [
-        df_pivot.index < TRAIN_END,
-        (df_pivot.index >= TRAIN_END) & (df_pivot.index < VAL_END),
-        df_pivot.index >= VAL_END,
+
+def process_and_impute_full_data(filepath, train_end=TRAIN_END):
+    """Bereinigt die Rohdaten, ohne zukünftige Messwerte zu verwenden."""
+    with open(filepath, "r", encoding="utf-8") as datei:
+        roh = json.load(datei)
+
+    df = pd.DataFrame(roh["sensordata"])
+    fehlend = {"timestamp", "name", *FEATURES} - set(df.columns)
+    if fehlend:
+        raise ValueError(f"Fehlende Pflichtfelder: {sorted(fehlend)}")
+
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="raise")
+    for feature in FEATURES:
+        df[feature] = pd.to_numeric(df[feature], errors="raise")
+        if df[feature].isna().any() or (df[feature] < 0).any():
+            raise ValueError(f"{feature} enthält fehlende oder negative Rohwerte")
+
+    # Metadaten sowie Anzahl der Mehrfachmessungen bleiben nachvollziehbar.
+    meta_spalten = [
+        spalte for spalte in df.columns
+        if spalte not in ["timestamp", *FEATURES]
     ]
-    for split in split_masks:
-        part = df_pivot.loc[split]
-        linear = part.interpolate(method='linear', limit_area='inside')
-        df_pivot.loc[split] = part.where(~short_gaps.loc[split], linear)
+    sensor_meta = df[meta_spalten].drop_duplicates("name", keep="first")
+    quellanzahl = (
+        df.groupby(["timestamp", "name"]).size()
+        .rename("source_record_count").reset_index()
+    )
 
-    # 2. Größere Lücken nur mit gemessenen Trainingswerten füllen.
-    local_time = df_pivot.index.tz_convert('Europe/Berlin')
-    train = df_pivot.index < TRAIN_END
-    reference = measured.loc[train]
-    train_time = local_time[train]
+    # Mehrfachmessungen werden wie bisher gemittelt und auf ein Stundenraster gelegt.
+    gemessen = df.pivot_table(
+        index="timestamp", columns="name", values=FEATURES, aggfunc="mean"
+    ).resample("1h").asfreq()
+    laufzeiten = df.groupby("name")["timestamp"].agg(["min", "max"])
+    aktiv = pd.DataFrame(False, index=gemessen.index, columns=gemessen.columns)
+    for feature, sensor in gemessen.columns:
+        aktiv[(feature, sensor)] = (
+            (gemessen.index >= laufzeiten.loc[sensor, "min"])
+            & (gemessen.index <= laufzeiten.loc[sensor, "max"])
+        )
+    gemessen = gemessen.where(aktiv)
 
-    weekday_hour_mean = reference.groupby([train_time.weekday, train_time.hour]).mean()
-    keys = pd.MultiIndex.from_arrays([local_time.weekday, local_time.hour])
-    weekday_hour_values = weekday_hour_mean.reindex(keys)
-    weekday_hour_values.index = df_pivot.index
-    df_pivot = df_pivot.fillna(weekday_hour_values)
+    werte = gemessen.copy()
+    methode = pd.DataFrame("", index=werte.index, columns=werte.columns)
+    methode[gemessen.notna()] = "observed"
 
-    hour_mean = reference.groupby(train_time.hour).mean()
-    hour_values = hour_mean.reindex(local_time.hour)
-    hour_values.index = df_pivot.index
-    df_pivot = df_pivot.fillna(hour_values).fillna(reference.mean()).where(active)
+    # Die ersten beiden Stunden jeder Lücke werden nur aus der Vergangenheit
+    # fortgeschrieben. Anders als lineare Interpolation kann dies kein Ziel y[t]
+    # in den Kontext X[t] zurückspiegeln.
+    vorwaerts = gemessen.ffill(limit=2).where(aktiv)
+    maske = aktiv & werte.isna() & vorwaerts.notna()
+    werte[maske] = vorwaerts[maske]
+    methode[maske] = "causal_ffill"
 
-    # Tabelle wieder "flach" machen
-    df_clean = df_pivot.stack(level='name')
-    df_clean['is_imputed'] = was_missing.stack(level='name').any(axis=1)
-    df_clean = df_clean.reset_index().dropna(
-        subset=['visitors', 'avgDuration'], how='all')
-    df_clean['visitors'] = df_clean['visitors'].round()
-    df_clean['avgDuration'] = df_clean['avgDuration'].round(2)
+    # Alle weiteren Ersatzwerte stammen nur aus ursprünglich gemessenen
+    # Trainingswerten, niemals aus Validation oder Test.
+    referenz = gemessen.loc[gemessen.index < pd.Timestamp(train_end)]
+    kandidaten = [
+        ("weekday_hour_mean", _profil_auf_zeitachse(
+            referenz, werte.index, "wochentag_stunde"
+        )),
+        ("hour_mean", _profil_auf_zeitachse(referenz, werte.index, "stunde")),
+        ("sensor_mean", pd.DataFrame(
+            np.tile(referenz.mean().to_numpy(), (len(werte), 1)),
+            index=werte.index, columns=werte.columns,
+        )),
+    ]
+    for name, kandidat in kandidaten:
+        maske = aktiv & werte.isna() & kandidat.notna()
+        werte[maske] = kandidat[maske]
+        methode[maske] = name
 
-    # Statische Infos (Koordinaten etc.) wieder anfügen
-    df_final = df_clean.merge(sensor_meta, on='name', how='left')
-    return df_final
+    if (aktiv & werte.isna()).any().any():
+        raise ValueError("Nicht alle aktiven Sensorstunden konnten imputiert werden")
+
+    # Zurück in eine flache Tabelle. Beide Messgrößen fehlen in diesen Daten
+    # immer gemeinsam; deshalb reicht eine gemeinsame Imputationsmaske.
+    gestapelt = werte.stack(level="name", future_stack=True)
+    gueltig = gestapelt[FEATURES].notna().any(axis=1)
+    gestapelt = gestapelt.loc[gueltig]
+    sauber = gestapelt.reset_index()
+    beobachtet = gemessen.notna().stack(level="name", future_stack=True).loc[gueltig]
+    methoden = methode.stack(level="name", future_stack=True).loc[gueltig]
+    sauber["is_imputed"] = (~beobachtet.all(axis=1)).to_numpy()
+    sauber["imputation_method"] = methoden[FEATURES[0]].to_numpy()
+    sauber = sauber.merge(quellanzahl, on=["timestamp", "name"], how="left")
+    sauber["source_record_count"] = sauber["source_record_count"].fillna(0).astype(int)
+    sauber = sauber.merge(sensor_meta, on="name", how="left")
+    sauber["visitors"] = sauber["visitors"].round()
+    sauber["avgDuration"] = sauber["avgDuration"].round(2)
+    return sauber
 
 
-def create_windows(data, window_size):
-    # Zeitreihe im Windows zerschneiden
-    X = []
-    for i in range(len(data) - window_size):
-        window = data[i:(i + window_size)]
-        X.append(window)
-    return np.array(X)
+def save_processed_data(filepath, output_path=None):
+    """Bereitet die Daten auf und schreibt standardkonformes JSON ohne NaN."""
+    filepath = Path(filepath)
+    output_path = Path(output_path or (
+        filepath.parent.parent / "processed" / "cleaned_sensordata.json"
+    ))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sauber = process_and_impute_full_data(filepath)
+
+    export = sauber.copy()
+    export["timestamp"] = export["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    # pandas ersetzt hier NaN aus optionalen Metadaten zuverlässig durch null.
+    records = json.loads(export.to_json(orient="records"))
+    with open(output_path, "w", encoding="utf-8") as datei:
+        json.dump({"sensordata": records}, datei, ensure_ascii=False, indent=2,
+                  allow_nan=False)
+    return sauber
 
 
-def preprocess_data(filepath, window_size=24):
-    # 1. Lücken füllen
-    df_full = process_and_impute_full_data(filepath)
-
-    # 2. Clean Data als JSON speichern
-    processed_dir = Path(filepath).parent.parent / "processed"
-    processed_dir.mkdir(parents=True, exist_ok=True)
-    out_path = processed_dir / "cleaned_sensordata.json"
-
-    # Zeitstempel für den Export
-    df_export = df_full.copy()
-    df_export['timestamp'] = df_export['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-
-    export_dict = {"sensordata": df_export.to_dict(orient='records')}
-    with open(out_path, 'w', encoding='utf-8') as f:
-        json.dump(export_dict, f, indent=2)
-
-    # 3. Passanten summieren
-    df_model = df_full.groupby('timestamp')['visitors'].sum().reset_index()
-
-    # 4. Daten skalieren (0 bis 1)
-    scaler = MinMaxScaler()
-    df_scaled = scaler.fit_transform(df_model[['visitors']])
-
-    # 5. Fenster erstellen (Samples, Timesteps, Features)
-    X_train = create_windows(df_scaled, window_size)
-    X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1))
-
-    return X_train, scaler, df_model
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    standard = Path(__file__).resolve().parent.parent / "data" / "raw" / "sensordata.json"
+    parser.add_argument("--input", type=Path, default=standard)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    sauber = save_processed_data(args.input, args.output)
+    print(f"Vorverarbeitung erfolgreich: {len(sauber)} Sensorstunden, "
+          f"davon {int(sauber['is_imputed'].sum())} imputiert.")
 
 
 if __name__ == "__main__":
-    # Kurzer Testlauf
-    datei_pfad = Path(__file__).parent.parent / "data" / "raw" / "sensordata.json"
-
-    if datei_pfad.exists():
-        X_test, train_scaler, df_clean = preprocess_data(datei_pfad, window_size=24)
-        print(f"Vorverarbeitung erfolgreich. Shape der Matrix: {X_test.shape}")
-        print("Vollständige JSON gespeichert unter: data/processed/cleaned_sensordata.json")
-    else:
-        print(f"Fehler: Datei nicht gefunden unter {datei_pfad}")
+    main()
