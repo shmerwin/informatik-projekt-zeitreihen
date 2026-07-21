@@ -1,2 +1,43 @@
 \chapter{Hintergrund}
 \label{ch:Hintergrund}
+
+\section{Zeitreihen und Anomalien}
+
+Eine Zeitreihe ordnet Messwerte chronologisch. Bei Passantenfrequenzen hängen
+benachbarte Stunden zusammen; zusätzlich wiederholen sich Tagesmuster. Eine
+Anomalie ist deshalb nicht zwingend ein großer absoluter Wert, sondern eine
+Abweichung vom zeit- und ortsabhängig erwarteten Verhalten. Punktanomalien
+betreffen einzelne Stunden. Sprunghafte Niveauwechsel (Level-Shifts),
+schleichende Verschiebungen (Drifts) und festgefrorene Sensorwerte (Stuck-at)
+erstrecken sich dagegen über mehrere Stunden.
+
+Im vorliegenden Datensatz fehlen vollständige reale Anomaliekennzeichnungen.
+Das Lernen des Normalverhaltens erfolgt daher selbstüberwacht: Aus vorhandenen
+Messwerten wird ein künstliches Lernziel erzeugt, ohne Klassen wie ``normal'' oder
+``anomal'' vorzugeben. Erst der Fehler zwischen Modellschätzung und Messung wird
+als Anomaliesignal verwendet.
+
+\section{Erkennung mit Vorhersagen}
+
+Ein Vorhersagemodell erhält die letzten $w$ Zeitpunkte und schätzt den nächsten
+Wert $\hat{x}_t$. Ein großer Prognosefehler $|x_t-\hat{x}_t|$ deutet darauf hin,
+dass die Beobachtung nicht zum erlernten Verlauf passt. Unterschiedlich
+skalierte Messgrößen müssen vor einer gemeinsamen Entscheidung auf eine
+vergleichbare Skala gebracht werden. Vorhersagegüte und Erkennungsleistung sind
+dabei nicht gleichbedeutend: Ein kleiner mittlerer Fehler garantiert noch keine klare Trennung seltener
+Anomalien.
+
+\section{LSTM, Autoencoder und Transformer}
+
+Long Short-Term Memory (LSTM) ist eine rekurrente Netzstruktur mit steuerbaren
+Speicherzuständen und eignet sich zur Verarbeitung geordneter Sequenzen
+\cite{hochreiter1997long}. Ein LSTM kann ein Zeitfenster zu einem
+Zustandsvektor verdichten und daraus eine Prognose erzeugen.
+
+Ein Autoencoder lernt dagegen, sein Eingabefenster zu rekonstruieren. Ein hoher
+Rekonstruktionsfehler kann eine unbekannte Struktur anzeigen. Prognose und
+Rekonstruktion beruhen somit auf unterschiedlichen Annahmen über normales
+Verhalten. Ein Transformer verarbeitet verschiedene Zeitpunkte mit einem
+Aufmerksamkeitsmechanismus und kann dadurch auch weiter auseinanderliegende
+Zusammenhänge direkt gewichten. Diese zusätzliche Freiheit ist vor allem bei
+längeren Reihen und einer größeren Datenbasis nützlich.

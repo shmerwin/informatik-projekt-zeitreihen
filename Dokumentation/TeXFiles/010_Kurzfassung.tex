@@ -5,3 +5,16 @@
 \fi
 \label{ch:Abstract}
 
+Diese Arbeit entwickelt ein unüberwachtes Verfahren zur Erkennung auffälliger
+Passanten- und Verweildauerdaten aus Bad Nauheim. Die Datenaufbereitung fasst
+Mehrfachmessungen zusammen, kennzeichnet Ausfälle und ergänzt interne Lücken,
+ohne Informationen aus dem späteren Testzeitraum zu verwenden. Ein einfaches
+LSTM sagt aus den vorhergehenden 24 Stunden die nächste Stunde voraus. Große
+Abweichungen zwischen Vorhersage und Messung gelten als mögliche Anomalien.
+Unter gleichen Testbedingungen benötigt das aktuelle LSTM 5.170 statt 17.282
+Parameter. Bei starken künstlichen Anomalien steigt der mittlere F1-Wert
+gegenüber dem Basismodell von 0{,}401 auf 0{,}491. Die normale
+Besucherprognose wird dabei etwas schlechter. Der Vorteil liegt daher in der
+Erkennung der geprüften Anomalien und nicht in jeder einzelnen Kennzahl. Die
+nur zweiwöchige Datenbasis und fehlende vollständige reale Markierungen
+begrenzen die Aussagekraft.

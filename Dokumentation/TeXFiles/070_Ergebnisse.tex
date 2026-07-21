@@ -1,158 +1,162 @@
 \chapter{Ergebnisse}
 \label{ch:Ergebnisse}
 
-\section{Modellauswahl und Detektorkalibrierung}
+\section{Vergleich der beiden LSTM-Modelle}
 
-Tabelle~\ref{tab:forecaster_selection} zeigt die auf dem Tuningabschnitt
-ermittelten Werte der beiden LSTM-Konfigurationen. Der Mittelwert der beiden
-relativen MAE-Werte dient ausschließlich der Modellauswahl.
-
-\begin{table}[htb]
-  \centering
-  \caption{Ergebnis der LSTM-Auswahl auf dem Tuningabschnitt. Eigene
-    Darstellung.}
-  \label{tab:forecaster_selection}
-  \begin{tabular}{lrrrr}
-    \hline
-    Modell & beste Epoche & MAE Visitors & MAE Duration & mittl. rel. MAE \\
-    \hline
-    Small & 32 & 16{,}400 & 3{,}486 & 0{,}883 \\
-    Regularized & 21 & 15{,}176 & 3{,}598 & 0{,}851 \\
-    \hline
-  \end{tabular}
-\end{table}
-
-Gewählt wird die regularisierte Konfiguration mit 64 LSTM-Einheiten, einer
-dichten Schicht mit 48 Einheiten, einem sechsdimensionalen Sensor-Embedding,
-Dropout 0{,}25 und einer Lernrate von 0{,}0005. Der Trainingsverlauf ist in
-Abbildung~\ref{fig:forecaster_training} dargestellt.
-
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=0.82\textwidth]{../saved_models/forecaster/training_history.png}
-  \caption{Validierungs-Pinball-Loss der beiden Modellkandidaten. Eigene
-    Darstellung.}
-  \label{fig:forecaster_training}
-\end{figure}
-
-Die gemeinsame empirische 1-\%-Schwelle beträgt 0{,}7486. Unter den 15
-zulässigen Alarmregeln wählt die Kalibrierung zusätzlich die Bedingung, dass
-mindestens drei der letzten vier lückenlosen Messscores den niedrigeren Wert
-0{,}3082 überschreiten. Auf den unveränderten 368 Kalibrierungspunkten erzeugt
-diese Regel zwei Alarme beziehungsweise 0{,}54~\% und hält damit das vorab
-festgelegte 1-\%-Budget ein. Der Macro-Ereignis-F1 der
-Kalibrierungsinjektionen beträgt 0{,}746. Dieser Wert ist ein Auswahlkriterium
-und kein Testergebnis.
-
-\section{Prognosegüte im Testabschnitt}
-
-\begin{table}[htb]
-  \centering
-  \caption{Prognosegüte auf 1.346 gemessenen Testzielen. Die Abdeckung und
-    Breite beziehen sich auf die empirisch kalibrierten Intervalle. Eigene
-    Darstellung.}
-  \label{tab:forecaster_forecast_results}
-  \begin{tabular}{lrrrrrr}
-    \hline
-    Ziel & MAE & RMSE & MASE & rel. MAE & Abdeckung & Breite \\
-    \hline
-    Visitors & 12{,}114 & 22{,}962 & 0{,}622 & 0{,}745 & 99{,}63~\% & 224{,}99 \\
-    AvgDuration & 4{,}124 & 7{,}540 & 0{,}855 & 0{,}821 & 99{,}55~\% & 98{,}54 \\
-    \hline
-  \end{tabular}
-\end{table}
-
-Beide MASE-Werte und beide relativen Test-MAE-Werte liegen unter eins. Die
-Medianprognose ist damit im Mittel genauer als die jeweils verwendete
-saisonale Skalierung beziehungsweise $t-24$-Testbaseline. Die gemeinsame
-empirische Abdeckung beider Zielgrößen beträgt 99{,}26~\%. Gleichzeitig sind
-die Intervalle insbesondere für die Passantenzahl breit. Die hohe Abdeckung
-ist deshalb zusammen mit der Breite zu interpretieren und belegt allein keine
-hohe Trennschärfe des Anomaliedetektors.
-
-\section{Kandidaten im unveränderten Datensatz}
-
-Die eingefrorene Hybridregel markiert 15 der 1.346 gemessenen Testpunkte. Sie
-bilden elf zusammenhängende Forecast-Ereignisse. Die ursprüngliche reine
-1-\%-Punktschwelle hätte zehn Punkte markiert; die Persistenzregel ergänzt somit
-fünf moderate Punkte. Abbildung~\ref{fig:forecaster_example} zeigt den Sensor
-mit den meisten Forecast-Kandidaten. Die rote Markierung bedeutet eine
-statistische Abweichung und keine fachlich bestätigte Anomalie.
-
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=\textwidth]{../saved_models/forecaster/anomalies_example.png}
-  \caption{Messung, Medianprognose, empirisch kalibriertes Intervall und
-    Forecast-Kandidaten eines Beispielsensors. Eigene Darstellung.}
-  \label{fig:forecaster_example}
-\end{figure}
-
-Zusätzlich besitzen 1.333 Testziele keine Originalmessung. Diese werden zu 275
-zusammenhängenden Datenlücken-Ereignissen gruppiert und separat ausgewiesen.
-Sie sind Hinweise auf fehlende Sensordaten, aber nicht automatisch Anomalien
-des Passantenverhaltens. Werden Forecast- und Datenqualitätsalarme gemeinsam
-gruppiert, entstehen 282 Ereignisse; diese Zahl darf daher nicht als Anzahl
-erkannter Verhaltensanomalien interpretiert werden.
-
-\section{Ergebnisse der Anomalieinjektion}
-
-Tabelle~\ref{tab:forecaster_injection_results} fasst die starken Injektionen
-der Stärke 2{,}0 und den gefilterten sechs Stunden langen Stuck-at-Test über
-drei Testseeds zusammen. Die Referenzspalten zeigen die unveränderte reine
-1-\%-Punktschwelle. Sämtliche Treffer sind inkrementell gegenüber dem jeweils
-gepaarten unveränderten Lauf.
+Tabelle~\ref{tab:model_comparison} zeigt den in Kapitel
+\ref{ch:EvaluationDerMethode} beschriebenen Vergleich. F1, PR-AUC und
+Ereignis-Recall werden zunächst für jede der fünf Anomaliearten getrennt
+berechnet und anschließend gleich gewichtet gemittelt.
 
 \begin{table}[htb]
   \centering
   \small
-  \caption{Punkt- und Ereignisergebnisse der Testinjektionen. R = Recall,
-    Ref. = Referenzdetektor. Eigene Darstellung.}
-  \label{tab:forecaster_injection_results}
-  \begin{tabular}{lrrrrrr}
+  \caption{Größe und Anomalieerkennung der beiden LSTM-Modelle. R = Recall.
+    Eigene Darstellung.}
+  \label{tab:model_comparison}
+  \begin{tabular}{lrrrr}
     \hline
-    Typ & Punkt-R & Punkt-F1 & Ereignis-R & Ereignis-F1 & Ref.-R & Ref.-F1 \\
+    Modell & Parameter & F1 & PR-AUC & Ereignis-R \\
     \hline
-    Spike, 2{,}0 & 0{,}633 & 0{,}732 & 0{,}633 & 0{,}767 & 0{,}633 & 0{,}775 \\
-    Dip, 2{,}0 & 0{,}533 & 0{,}651 & 0{,}533 & 0{,}658 & 0{,}533 & 0{,}672 \\
-    Level-Shift, 2{,}0 & 0{,}708 & 0{,}742 & 0{,}861 & 0{,}878 & 0{,}833 & 0{,}883 \\
-    Drift, 2{,}0 & 0{,}458 & 0{,}543 & 0{,}750 & 0{,}810 & 0{,}694 & 0{,}780 \\
-    Stuck-at, 6 h & 0{,}237 & 0{,}345 & 0{,}371 & 0{,}499 & 0{,}315 & 0{,}404 \\
+    Basismodell & 17.282 & 0{,}401 & 0{,}594 & 0{,}466 \\
+    Aktuelles LSTM & 5.170 & 0{,}491 & 0{,}657 & 0{,}599 \\
     \hline
   \end{tabular}
 \end{table}
 
-Die Persistenzregel erhöht den Ereignis-Recall erwartungsgemäß bei
-mehrstündigen Veränderungen: bei starkem Level-Shift von 0{,}833 auf 0{,}861,
-bei starkem Drift von 0{,}694 auf 0{,}750 und bei Stuck-at von 0{,}315 auf
-0{,}371. Für einstündige Spikes und Dips entsteht kein Recall-Gewinn. Bei
-Level-Shift und den punktuellen Typen sinkt der Ereignis-F1 geringfügig, weil
-zusätzliche Alarme die Precision belasten. Die Regel verbessert somit nicht
-jede einzelne Kennzahl, erhöht aber gezielt die Sensitivität für anhaltende
-Abweichungen, ohne die empirische Kalibrierungs-Alarmrate zu erhöhen.
+Das aktuelle LSTM benötigt 70{,}1~\% weniger Parameter und erreicht bei allen
+drei Kennzahlen zur Anomalieerkennung bessere Werte. Sein F1 steigt gegenüber
+dem Basismodell relativ um 22{,}4~\%. Ob dieser Vorteil auch bei realen
+Anomalien besteht, lässt sich ohne vollständige reale Kennzeichnungen noch
+nicht feststellen.
 
-Schwache Injektionen bleiben schwierig. Bei Stärke 0{,}5 beträgt der
-Ereignis-Recall 0{,}067 für Spike, 0{,}017 für Dip, 0{,}167 für Level-Shift
-und 0{,}028 für Drift. Der Detektor erkennt folglich nicht jede definierte
-Anomalie. Die vollständigen Werte aller Stärken einschließlich Precision,
-PR-AUC, IoU und Verzögerung stehen in
-\texttt{injection\_benchmark.csv} und
-\texttt{injection\_benchmark.json}.
+\section{Prognosegüte und einfache Referenzen}
 
-\section{Diskussion und Limitationen}
+Tabelle~\ref{tab:forecast_results} vergleicht beide Netze mit drei einfachen
+statistischen Regeln.
 
-Die Ergebnisse beantworten die Forschungsfrage differenziert. Der globale
-Quantil-Forecaster übertrifft die saisonale Baseline im mittleren
-Prognosefehler. Starke punktuelle und mehrstündige Injektionen werden teilweise
-bis überwiegend erkannt; die zusätzliche Persistenz verbessert vor allem
-Level-Shift, Drift und Stuck-at. Für schwache Anomalien und einzelne Dips ist
-die Sensitivität gering.
+\begin{table}[htb]
+  \centering
+  \small
+  \caption{Prognosegüte auf 1.346 gemessenen Testzielen. V = Visitors,
+    D = AvgDuration. Eigene Darstellung.}
+  \label{tab:forecast_results}
+  \begin{tabular}{lrrrrrr}
+    \hline
+    Verfahren & MAE V & RMSE V & MASE V & MAE D & RMSE D & MASE D \\
+    \hline
+    Basismodell & 11{,}807 & 21{,}918 & 0{,}635 & 4{,}033 & 7{,}601 & 0{,}852 \\
+    Aktuelles LSTM & 12{,}691 & 24{,}103 & 0{,}682 & 4{,}031 & 7{,}384 & 0{,}851 \\
+    Wert bei $t-24$ & 16{,}260 & 35{,}016 & 0{,}874 & 5{,}022 & 8{,}640 & 1{,}061 \\
+    Stundenmittel & 13{,}674 & 29{,}415 & 0{,}735 & 3{,}833 & 6{,}701 & 0{,}809 \\
+    24-h-Median & 35{,}184 & 62{,}133 & 1{,}891 & 4{,}629 & 7{,}501 & 0{,}978 \\
+    \hline
+  \end{tabular}
+\end{table}
 
-Die synthetische Ground Truth gilt ausschließlich für die definierten
-Transformationen. Sie belegt weder den Recall unbekannter realer Anomalien noch
-die fachliche Richtigkeit der elf Kandidaten im Originaldatensatz. Der nur zwei
-Wochen umfassende Datensatz begrenzt außerdem die beobachtbaren Wochenmuster
-und die Größe von Tuning und Kalibrierung. Zeitliche Abhängigkeit verhindert
-eine klassische verteilungsfreie Conformal-Garantie. Schließlich wurde der
-Testzeitraum im Verlauf der retrospektiven Entwicklung bereits betrachtet;
-die Testinjektionen sind durch neue Seeds und eine eingefrorene Regel getrennt,
-stellen aber keine vollständig unangetastete konfirmatorische Studie dar.
+Beide LSTM-Varianten schlagen $t-24$ und den gleitenden Median bei beiden
+Zielgrößen. Das Stundenmittel ist bei der Verweildauer sogar genauer als beide
+Netze. Eine gute Vorhersage allein entscheidet deshalb nicht über die Güte der
+Anomalieerkennung; hierfür sind die Tests mit bekannten künstlichen
+Veränderungen maßgeblich.
+
+\section{Kandidaten im unveränderten Datensatz}
+
+Das aktuelle LSTM markiert 101 der 1.346 gemessenen Testpunkte. Daraus
+entstehen 91 zusammenhängende Ereignisse. 62 Punkte überschreiten die
+Besuchergrenze und 61
+die Grenze der Verweildauer; an einigen Stunden lösen beide Merkmale aus. Die
+101 Punkte entsprechen 7{,}5~\% des kurzen Testabschnitts. Sie sind ohne
+vollständige manuelle Prüfung ausschließlich statistische Kandidaten und nicht 101
+bestätigte reale Anomalien.
+
+Abbildung~\ref{fig:forecaster_example} zeigt den Sensor mit den meisten
+Kandidaten. Zusätzlich besitzen 1.333 Testziele keine Originalmessung. Diese
+werden zu 275 Datenlücken-Ereignissen gruppiert und separat ausgewiesen.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\textwidth]{../saved_models/forecaster/anomalies_example.png}
+  \caption{Messung, LSTM-Prognose und markierte Kandidaten eines
+    Beispielsensors. Rot bedeutet eine statistische Abweichung und keine
+    fachlich bestätigte Anomalie. Eigene Darstellung.}
+  \label{fig:forecaster_example}
+\end{figure}
+
+\section{Ergebnisse der starken Testinjektionen}
+
+Tabelle~\ref{tab:injection_results} schlüsselt das aktuelle LSTM nach
+Anomalieart auf. Bewertet werden nur zusätzliche Alarme gegenüber dem
+unveränderten Gegenlauf.
+
+\begin{table}[htb]
+  \centering
+  \small
+  \caption{Aktuelles LSTM bei starken künstlichen Anomalien, gemittelt über
+    drei Wiederholungen.
+    Eigene Darstellung.}
+  \label{tab:injection_results}
+  \begin{tabular}{lrrrrr}
+    \hline
+    Typ & Precision & Recall & F1 & PR-AUC & Ereignis-R \\
+    \hline
+    Spike & 0{,}719 & 0{,}683 & 0{,}701 & 0{,}804 & 0{,}683 \\
+    Dip & 0{,}885 & 0{,}550 & 0{,}674 & 0{,}806 & 0{,}550 \\
+    Level-Shift & 0{,}725 & 0{,}451 & 0{,}556 & 0{,}673 & 0{,}917 \\
+    Drift & 0{,}565 & 0{,}188 & 0{,}281 & 0{,}504 & 0{,}556 \\
+    Stuck-at & 0{,}869 & 0{,}148 & 0{,}246 & 0{,}496 & 0{,}292 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Spikes und Dips werden am zuverlässigsten erkannt. Bei Level-Shifts reicht
+mindestens ein Treffer für 91{,}7~\% der Ereignisse, obwohl nicht jede Stunde
+eines Ereignisses markiert wird. Langsame Drifts und konstante Stuck-at-Phasen
+bleiben die deutlichsten Schwächen.
+
+\section{Imputations- und Rauschprüfung}
+
+Beim künstlichen Entfernen bekannter Messwerte steigt der Besucherfehler mit
+der Lückenlänge, wie Tabelle~\ref{tab:imputation_results} zeigt. Die Werte je
+Länge fassen die tatsächlich verwendeten Rückfallstufen der Datenaufbereitung
+zusammen.
+
+\begin{table}[htb]
+  \centering
+  \caption{Imputation auf künstlich verdeckten Trainingswerten. Eigene
+    Darstellung.}
+  \label{tab:imputation_results}
+  \begin{tabular}{rrrrrr}
+    \hline
+    Länge & Punkte & MAE V & RMSE V & MAE D & RMSE D \\
+    \hline
+    1 h & 36 & 11{,}194 & 16{,}832 & 4{,}342 & 6{,}040 \\
+    2 h & 72 & 18{,}944 & 32{,}458 & 4{,}709 & 6{,}735 \\
+    4 h & 144 & 18{,}201 & 36{,}089 & 3{,}164 & 4{,}606 \\
+    8 h & 288 & 20{,}955 & 32{,}081 & 3{,}759 & 7{,}145 \\
+    Gesamt & 540 & 19{,}302 & 32{,}490 & 3{,}766 & 6{,}426 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Zusätzlich erhöht Rauschen mit Standardabweichung 0{,}1 den MAE um 0{,}08~\%
+bei Visitors und 0{,}48~\% bei AvgDuration. Bei 0{,}25 betragen die Zunahmen
+8{,}82~\% und 1{,}55~\%. Das Modell reagiert damit auf mäßiges Eingaberauschen
+vergleichsweise stabil; die Imputation langer Besucherlücken bleibt jedoch
+unsicher.
+
+\section{Manuelle Fallprüfung und Limitationen}
+
+Von den elf Ereignissen des früheren Prognoselaufs wurden sieben als
+plausibel normal, drei als offen und eines als extern gestütztes Ereignis
+eingeordnet. Das gestützte Ereignis umfasst am Rosengarten vier Stunden im
+Umfeld einer Veranstaltung. Das aktuelle LSTM überschreitet seine Alarmgrenze
+in diesen vier Stunden nicht; um 19:00~Uhr liegt der Anomaliewert mit 0{,}983
+nur knapp unter eins. Die manuelle Prüfung zeigt damit eine bekannte Anomalie,
+die das Modell übersieht. Die Ergebnisse der künstlichen Tests dürfen deshalb
+nicht zu stark verallgemeinert werden.
+
+Die Daten decken nur zwei Wochen ab, die 91 aktuellen Kandidaten sind noch
+nicht vollständig geprüft und der Testabschnitt wurde während der Entwicklung
+bereits betrachtet. Die besseren Ergebnisse bei künstlichen Veränderungen
+garantieren daher nicht, dass unbekannte reale Anomalien erkannt werden.

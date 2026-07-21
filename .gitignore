@@ -8,6 +8,7 @@ __pycache__/
 
 # generierte Plots
 plots/
+tmp/
 
 # LaTeX: Build-Output von TeXiFy
 out/
@@ -49,3 +50,4 @@ Thumbs.db
 # Trainierte Modelle
 *.h5
 *.keras
+!saved_models/forecaster/forecaster.keras

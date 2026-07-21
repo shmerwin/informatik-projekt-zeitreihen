@@ -28,10 +28,12 @@ sich das Normalverhalten je nach Tageszeit, Wochentag und Standort verändert.
 \label{sec:Einfuehrung_Zielsetzung}
 
 Das Ziel ist ein System, das für jeden Sensor das normale Passantenaufkommen
-lernt und auffällige Stunden meldet. Dafür setzen wir mehrere
-Deep-Learning-Architekturen um, darunter LSTM/GRU, Autoencoder und Transformer,
-und vergleichen sie anhand nachvollziehbarer Kennzahlen. So können wir begründen,
-welcher Ansatz für diese Art von Daten am besten funktioniert.
+lernt und auffällige Stunden meldet. Der erste Ansatz ist ein bewusst einfaches
+LSTM, das die nächste Stunde vorhersagt. Bewertet wird es im Vergleich mit
+einem Basismodell und drei leicht verständlichen statistischen Regeln. Dabei
+zählt nicht nur die Genauigkeit der Vorhersage, sondern vor allem, wie gut
+künstlich erzeugte Anomalien erkannt werden. Eine weitere Architektur wird in
+einem späteren Projektschritt getrennt trainiert und bewertet.
 
 \section{Aufbau der Arbeit}
 \label{sec:Einfuehrung_Aufbau}
