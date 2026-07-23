@@ -7,14 +7,19 @@
 
 Diese Arbeit entwickelt ein unüberwachtes Verfahren zur Erkennung auffälliger
 Passanten- und Verweildauerdaten aus Bad Nauheim. Die Datenaufbereitung fasst
-Mehrfachmessungen zusammen, kennzeichnet Ausfälle und ergänzt interne Lücken,
-ohne Informationen aus dem späteren Testzeitraum zu verwenden. Ein einfaches
-LSTM sagt aus den vorhergehenden 24 Stunden die nächste Stunde voraus. Große
-Abweichungen zwischen Vorhersage und Messung gelten als mögliche Anomalien.
-Unter gleichen Testbedingungen benötigt das aktuelle LSTM 5.170 statt 17.282
-Parameter. Bei starken künstlichen Anomalien steigt der mittlere F1-Wert
-gegenüber dem Basismodell von 0{,}401 auf 0{,}491. Die normale
-Besucherprognose wird dabei etwas schlechter. Der Vorteil liegt daher in der
-Erkennung der geprüften Anomalien und nicht in jeder einzelnen Kennzahl. Die
-nur zweiwöchige Datenbasis und fehlende vollständige reale Markierungen
-begrenzen die Aussagekraft.
+Mehrfachmessungen zusammen, erkennt einen gemeinsamen Systemausfall und ergänzt
+interne Lücken ohne Informationen aus dem späteren Testzeitraum. Imputierte
+Werte bleiben als gekennzeichneter Kontext erhalten, werden aber nicht als
+Lern- oder Bewertungsziel verwendet.
+
+Das Hauptmodell ist ein Quantil-LSTM mit 22.798 Parametern, das aus den
+vorhergehenden 24 Stunden die nächste Stunde prognostiziert. Ein kompakter
+LSTM-Autoencoder mit 3.426 Parametern bildet eine getrennte Vergleichsmethode.
+Bei starken künstlichen Anomalien erreicht der Forecaster einen mittleren
+Punkt-F1 von 0{,}606 und einen Ereignis-F1 von 0{,}728. Das ursprüngliche
+LSTM erreicht unter denselben Bedingungen 0{,}415 beziehungsweise 0{,}529, der
+Autoencoder 0{,}477 beziehungsweise 0{,}607. Im unveränderten Testabschnitt
+markiert der Forecaster 18 Stunden in elf Ereignissen. Diese Werte zeigen die
+technische Erkennungsfähigkeit für definierte Veränderungen; die nur
+zweiwöchige Datenbasis und fehlende vollständige reale Markierungen begrenzen
+die Übertragbarkeit auf unbekannte reale Anomalien.

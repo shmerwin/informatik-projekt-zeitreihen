@@ -1,57 +1,58 @@
 \chapter{Stand der Technik}
 \label{ch:StandDerTechnik}
 
-\section{Prognosen mit fehlenden und auffälligen Werten}
+\section{Prognosebasierte Anomalieerkennung}
+\label{sec:SdT_Forecaster}
 
-Die Anomalieerkennung mit Vorhersagen setzt voraus, dass ein Modell das
-Normalverhalten ausreichend lernt. In unbeschrifteten Trainingsdaten können
-jedoch bereits unbekannte Anomalien enthalten sein. RobustTSF zeigt für mehrere
-dort definierte Zielanomalien Vorteile des absoluten gegenüber dem quadratischen
-Fehler \cite{cheng2024robusttsf}. DCFF-MTAD berichtet in drei Vergleichstests
-Verbesserungen durch die Huber-Fehlerfunktion, die große Abweichungen weniger
-stark gewichtet als MSE \cite{xu2023dcffmtad}. Daraus folgt keine allgemein
-beste Fehlerfunktion, wohl aber die Notwendigkeit, Vorhersagegüte und
-Anomalieerkennung getrennt zu bewerten.
+Hundman et al. verwenden LSTM-Prognosefehler und dynamische Schwellen zur
+Erkennung von Anomalien in Zeitreihen \cite{hundman2018spacecraft}. Globale
+rekurrente Prognosemodelle können Informationen über mehrere verwandte
+Zeitreihen teilen und zugleich reihenspezifische Merkmale berücksichtigen
+\cite{salinas2020deepar}. Quantilprognosen bilden zusätzlich die Unsicherheit
+einer Vorhersage ab, statt nur einen einzelnen Schätzwert auszugeben
+\cite{gasthaus2019spline,koenker1978regression}. Dropout kann die Anpassung
+eines Netzes an seine Trainingsbeispiele begrenzen
+\cite{srivastava2014dropout}.
 
-Fehlende Werte tragen außerdem selbst Information. GRU-D verwendet deshalb
-unter anderem eine Beobachtungsmaske und zeigt, dass ein rekurrentes Modell
-Muster fehlender Messungen nutzen kann \cite{che2018grud}. Eine solche Maske
-ist deutlich einfacher als die vollständige GRU-D-Struktur und eignet sich
-daher auch für ein kleines Modell.
+Diese Arbeiten begründen die im Projekt verwendeten Bausteine
+Prognosefehler, gemeinsames Lernen, Sensorinformation, Quantilausgabe und
+Dropout. Sie geben jedoch keine optimale Schichtbreite für den kurzen
+Datensatz aus Bad Nauheim vor. Die konkreten Größen werden deshalb in
+Abschnitt~\ref{sec:Methode_Forecasterentwicklung} anhand von Datenumfang und
+Parameterbudget festgelegt.
 
-\section{Kleine rekurrente Modelle}
+\section{Anomalieerkennung durch Rekonstruktion}
 
-Das LSTM wurde entwickelt, um längerfristige Abhängigkeiten in Sequenzen zu
-lernen \cite{hochreiter1997long}. Für die nur zwei Wochen langen Sensorreihen
-ist ein großes Netz jedoch nicht automatisch geeigneter. Dropout setzt während
-des Trainings zufällig Aktivierungen auf null und wurde als einfache Maßnahme
-gegen Überanpassung eingeführt \cite{srivastava2014dropout}. Das spricht für
-ein kleines Netz mit mäßigem Dropout, legt aber keine bestimmte Anzahl von
-Einheiten fest.
+Ein Autoencoder lernt, normale Eingabefolgen zu komprimieren und anschließend
+wiederherzustellen. Große Rekonstruktionsfehler dienen danach als Hinweis auf
+eine Abweichung. Malhotra et al. übertragen dieses Prinzip auf mehrdimensionale
+Sensordaten. Ihr Modell verwendet jeweils eine LSTM-Schicht im Encoder und im
+Decoder und zeigt, dass ein solcher Aufbau sowohl periodische als auch weniger
+gut vorhersagbare Reihen verarbeiten kann \cite{malhotra2016encdec}. Die Arbeit
+begründet den verwendeten Grundaufbau, gibt aber keine allgemein optimale Zahl
+von LSTM-Einheiten für andere Datensätze vor.
 
-\section{Bewertung der Anomalieerkennung}
+Denoising-Autoencoder erhalten beim Training eine teilweise verdeckte Eingabe
+und sollen trotzdem die unveränderten Werte rekonstruieren. Dadurch wird das
+reine Kopieren der Eingabe erschwert \cite{vincent2008denoising}. Neuere
+Verfahren verwenden ebenfalls zeitliche Maskierung, kombinieren diese jedoch
+teilweise mit mehreren Transformern, Frequenzdarstellungen und zusätzlichen
+Fehlerfunktionen \cite{fang2024tfmae}. Für den kurzen Datensatz dieses Projekts
+wird nur das einfache Maskierungsprinzip übernommen.
 
-Eine hohe Vorhersagegenauigkeit allein garantiert keine gute
-Anomalieerkennung. AFMF zeigt, dass unter anderem Skalierungsunterschiede und
-Anomalien im Eingabefenster die Unterscheidung zwischen normalem und
-auffälligem Verhalten erschweren können \cite{shen2024afmf}.
-Goswami et al. untersuchen künstlich erzeugte Anomalien als
-Vergleichsmöglichkeit ohne reale Kennzeichnungen und finden einen deutlichen
-Zusammenhang mit der Bewertung auf beschrifteten Daten
-\cite{goswami2023unsupervised}. Reale Anomalien können von den künstlichen
-Typen abweichen; solche Tests ersetzen deshalb keine fachliche Prüfung.
+\section{Komplexität und fairer Vergleich}
 
-mTSBench vergleicht 24 Verfahren auf 344 mehrdimensionalen Zeitreihen aus 19
-Datensätzen. Kein Verfahren dominiert auf allen Datensätzen
-\cite{zhou2026mtsbench}. Ein Modell muss daher auf den konkreten Daten geprüft
-werden; gute Ergebnisse auf einem fremden Datensatz lassen sich nicht einfach
-übertragen.
+Aktuelle Vergleichsarbeiten warnen davor, eine komplexere Architektur
+automatisch als besseren Anomaliedetektor zu betrachten. Sarfraz et al. zeigen,
+dass zusätzliche Komplexität häufig nur geringe Vorteile bringt, und empfehlen
+einfache, verständliche Vergleichsmodelle \cite{sarfraz2024quovadis}. Der
+umfangreiche TSB-AD-Vergleich kommt ebenfalls zu dem Ergebnis, dass einfache
+neuronale und statistische Verfahren viele moderne Netze übertreffen können
+\cite{liu2024elephant}.
 
-\section{Prognose und Rekonstruktion}
-
-MTAD-GAT optimiert Prognose und Rekonstruktion gemeinsam
-\cite{zhao2020mtadgat}. Im Vergleich innerhalb dieser Studie ist die gemeinsame
-Nutzung beider Aufgaben auf drei Datensätzen besser als jeweils nur eine
-Aufgabe. Das garantiert keinen Gewinn für Bad Nauheim, zeigt aber, dass
-Prognose- und Rekonstruktionsfehler unterschiedliche Hinweise auf Anomalien
-liefern können.
+Deshalb wird kein Anspruch erhoben, mit einer bestimmten Schichtgröße einen
+allgemein besten Stand der Technik zu erreichen. Stattdessen werden aktuelle
+Erkenntnisse auf einen kompakten Autoencoder übertragen und mit denselben
+Zeitabschnitten, künstlichen Anomalien und Kennzahlen wie der Forecaster
+geprüft. Eine zusätzliche Schicht wird nur dann gerechtfertigt, wenn sie auf
+dieser gemeinsamen Prüfung einen nachvollziehbaren Vorteil liefert.

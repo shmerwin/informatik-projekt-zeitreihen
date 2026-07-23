@@ -1,61 +1,70 @@
 {
-  "model_version": "simple_sequential_lstm_v3",
   "forecast": {
-    "lstm": {
-      "visitors": {
-        "mae": 12.69098536752403,
-        "rmse": 24.10278962440947,
-        "mase": 0.6822463595686774
-      },
-      "avgDuration": {
-        "mae": 4.031336656473508,
-        "rmse": 7.384223111555969,
-        "mase": 0.851265346789919
-      }
+    "visitors": {
+      "mae": 11.855566617123788,
+      "rmse": 23.006281573804316,
+      "mase": 0.6373356308372032,
+      "relative_mae_vs_t_minus_24_test": 0.7291233056131143,
+      "seasonal_naive_test_mae": 16.26002971768202,
+      "mase_training_scale": 18.6017634092579,
+      "interval_coverage": 0.9977711738484398,
+      "mean_interval_width": 180.5867162446654
     },
-    "t_minus_24": {
-      "visitors": {
-        "mae": 16.26002971768202,
-        "rmse": 35.01638334445753,
-        "mase": 0.8741122741938314
-      },
-      "avgDuration": {
-        "mae": 5.022421991084696,
-        "rmse": 8.640335796402324,
-        "mase": 1.0605449661716004
-      }
+    "avgDuration": {
+      "mae": 4.121148889958244,
+      "rmse": 7.614404866299346,
+      "mase": 0.8702302828888655,
+      "relative_mae_vs_t_minus_24_test": 0.8205501045658246,
+      "seasonal_naive_test_mae": 5.022421991084696,
+      "mase_training_scale": 4.73569924075435,
+      "interval_coverage": 0.9925705794947994,
+      "mean_interval_width": 73.64616845375096
+    }
+  },
+  "joint_interval_coverage": 0.9910846953937593,
+  "detector": {
+    "config": {
+      "high_alpha": 0.005,
+      "point_threshold": 0.7790733030996055,
+      "low_alpha": 0.05,
+      "low_threshold": 0.357908362148851,
+      "persistence_window": 3,
+      "required_exceedances": 2,
+      "selection_period": [
+        "2025-07-09 00:00:00+00:00",
+        "2025-07-10 00:00:00+00:00"
+      ],
+      "max_calibration_alarm_rate": 0.01
     },
-    "hour_mean": {
-      "visitors": {
-        "mae": 13.674329583244885,
-        "rmse": 29.414809036372453,
-        "mase": 0.7351093163801512
+    "calibration_selection": {
+      "detector": {
+        "high_alpha": 0.005,
+        "point_threshold": 0.7790733030996055,
+        "low_alpha": 0.05,
+        "low_threshold": 0.357908362148851,
+        "persistence_window": 3,
+        "required_exceedances": 2
       },
-      "avgDuration": {
-        "mae": 3.8332176377980614,
-        "rmse": 6.701311337480945,
-        "mase": 0.809430126983205
-      }
-    },
-    "rolling_median_24h": {
-      "visitors": {
-        "mae": 35.184249628528974,
-        "rmse": 62.13347206352344,
-        "mase": 1.8914470017943648
-      },
-      "avgDuration": {
-        "mae": 4.629245913818722,
-        "rmse": 7.500586516194865,
-        "mase": 0.9775210963526748
+      "calibration_alarm_count": 2,
+      "calibration_alarm_rate": 0.005434782608695652,
+      "macro_event_f1": 0.7344220403593266,
+      "macro_incremental_event_recall": 0.6338888888888888,
+      "event_f1_by_type": {
+        "spike": 0.75125923390662,
+        "dip": 0.6980570313903648,
+        "level_shift": 0.8877299529015775,
+        "drift": 0.7715719201060071,
+        "stuck_at": 0.5634920634920635
       }
     }
   },
   "counts": {
     "measured_test_points": 1346,
-    "forecast_candidates": 101,
-    "forecast_events": 91,
+    "forecast_candidates": 18,
     "missing_measurements": 1333,
+    "forecast_events": 11,
     "missing_events": 275
   },
-  "limitation": "Forecast-Treffer sind ohne Vollannotation nur Kandidaten. Klassifikationsmetriken stehen im Injektionsbenchmark."
+  "real_labels": null,
+  "limitation": "Ohne bestätigte Ereignis- oder Sensorlabels sind statistische Abweichungen nur Anomalie-Kandidaten."
 }

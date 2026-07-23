@@ -1,27 +1,20 @@
 \chapter{Zusammenfassung und Ausblick}
 \label{ch:Zusammenfassung}
 
-Die Datenaufbereitung fasst Mehrfachmessungen zusammen, behandelt einen
-stadtweiten Nullmelde-Ausfall als fehlend und ergänzt interne Lücken, ohne
-Validierungs- oder Testwerte zur Profilbildung zu verwenden. Ergänzte Werte
-dürfen als gekennzeichneter Eingang in das LSTM eingehen, werden aber nicht als
-Ziel beim Training oder bei der Bewertung verwendet. Das künstliche Entfernen
-von 540 bekannten Messwerten zeigt, wie unsicher diese Ergänzung besonders bei
-längeren Lücken bleibt.
+Die aufbereiteten Sensordaten wurden mit zwei getrennten Verfahren untersucht:
+Ein Forecaster bewertet Abweichungen von seiner Prognose, ein kompakter
+Autoencoder bewertet Rekonstruktionsfehler. Beide Modelle verwenden dieselben
+Zeitabschnitte, ursprünglich gemessenen Zielwerte und künstlichen
+Testanomalien. Dadurch ist der Vergleich nachvollziehbar, ohne die beiden
+Anomaliewerte miteinander zu vermischen.
 
-Im direkten Vergleich erkennt das aktuelle LSTM die geprüften künstlichen
-Anomalien besser als das Basismodell. Bei der normalen Besucherprognose ist das
-Basismodell dagegen etwas genauer. Das aktuelle LSTM ist somit für die
-untersuchten Anomalien geeigneter, aber noch kein zuverlässig geprüftes
-Verfahren für reale Ereignisse.
+Der Forecaster erkennt die geprüften Anomaliearten insgesamt besser. Der
+Autoencoder ist deutlich kleiner und reagiert besonders auf mehrstündige
+Verschiebungen und Drifts, erreicht aber nicht die gleiche Zuverlässigkeit.
+Mehr Schichten sind mit den kurzen Datenreihen daher derzeit nicht begründet.
+Als nächste Schritte sind vor allem die vollständige manuelle Prüfung der nach
+dem letzten Training aktuellen Kandidaten, die Klärung der geplanten
+Sensorlaufzeiten, längere Messreihen und zeitlich wiederholte Tests sinnvoll.
+Erst mit deutlich mehr Daten sollte zusätzlich ein Transformer untersucht
+werden.
 
-Auf dem unveränderten Testabschnitt entstehen 91 noch nicht vollständig
-geprüfte Ereignisse. Außerdem übersieht das aktuelle LSTM die vier bekannten
-Stunden des Rosengarten-Ereignisses. Die künstlichen Tests sind deshalb nur ein
-erster Leistungsnachweis und ersetzen keine vollständige manuelle Prüfung.
-
-Als nächster Schritt soll ein einfacher Autoencoder als eigenständiges zweites
-Modell trainiert und getrennt mit dem LSTM verglichen werden. Danach haben
-vollständige reale Kennzeichnungen, bestätigte Sensorlaufzeiten und längere
-Zeitreihen Vorrang. Erst mit deutlich mehr Daten ist ein Vergleich mit einem
-Transformer sinnvoll.

@@ -1,274 +1,583 @@
 {
-  "design": "Anomalien werden in feste, ursprünglich gemessene Testsegmente injiziert, die unabhängig von Modellalarmen gewählt wurden. Bewertet werden zusätzliche Alarme gegenüber dem Grundlauf.",
-  "seeds": [
-    101,
-    202,
-    303
+  "design": "Injektion nur in ursprünglich gemessene Testwerte vor Windowing und Prediction; drei von der Kalibrierung getrennte Zufallsstartwerte; bewertet werden nur zusätzliche Alarme gegenüber dem unveränderten Lauf.",
+  "test_seeds": [
+    445,
+    546,
+    647
   ],
-  "detector": {
-    "type": "feature_q99",
-    "feature_thresholds": [
-      3.4806134700775146,
-      6.732604503631592
-    ]
-  },
-  "metrics": [
-    {
-      "anomaly_type": "dip",
-      "strength": 0.5,
-      "seed": 202.0,
-      "events": 20.0,
-      "mean_realized_strength": 0.46533412522015477,
-      "precision": 0.3333333333333333,
-      "recall": 0.03333333333333333,
-      "f1": 0.06060606060606061,
-      "temporal_iou": 0.03333333333333333,
-      "roc_auc": 0.6996166415284063,
-      "pr_auc": 0.4877880651091789,
-      "tn": 1325.6666666666667,
-      "fp": 0.3333333333333333,
-      "fn": 19.333333333333332,
-      "tp": 0.6666666666666666,
-      "event_recall": 0.03333333333333333
-    },
-    {
-      "anomaly_type": "dip",
-      "strength": 1.0,
-      "seed": 202.0,
-      "events": 20.0,
-      "mean_realized_strength": 0.9191229957311103,
-      "precision": 0.8333333333333334,
-      "recall": 0.25,
-      "f1": 0.38003663003663,
-      "temporal_iou": 0.2385281385281385,
-      "roc_auc": 0.8389768728004022,
-      "pr_auc": 0.6685326690306338,
-      "tn": 1325.0,
-      "fp": 1.0,
-      "fn": 15.0,
-      "tp": 5.0,
-      "event_recall": 0.25
-    },
-    {
-      "anomaly_type": "dip",
-      "strength": 2.0,
-      "seed": 202.0,
-      "events": 20.0,
-      "mean_realized_strength": 1.723382333666086,
-      "precision": 0.8854700854700854,
-      "recall": 0.5499999999999999,
-      "f1": 0.6741702741702742,
-      "temporal_iou": 0.5099206349206349,
-      "roc_auc": 0.9142031171442936,
-      "pr_auc": 0.8060945121822858,
-      "tn": 1324.3333333333333,
-      "fp": 1.6666666666666667,
-      "fn": 9.0,
-      "tp": 11.0,
-      "event_recall": 0.5499999999999999
-    },
-    {
-      "anomaly_type": "drift",
-      "strength": 0.5,
-      "seed": 202.0,
-      "events": 12.0,
-      "mean_realized_strength": 0.31123743934181725,
-      "precision": 0.16666666666666666,
-      "recall": 0.006944444444444444,
-      "f1": 0.013333333333333334,
-      "temporal_iou": 0.006802721088435374,
-      "roc_auc": 0.5565988272556069,
-      "pr_auc": 0.2942372390817048,
-      "tn": 1297.6666666666667,
-      "fp": 0.3333333333333333,
-      "fn": 47.666666666666664,
-      "tp": 0.3333333333333333,
-      "event_recall": 0.027777777777777776
-    },
-    {
-      "anomaly_type": "drift",
-      "strength": 1.0,
-      "seed": 202.0,
-      "events": 12.0,
-      "mean_realized_strength": 0.6173269228084893,
-      "precision": 0.38888888888888884,
-      "recall": 0.041666666666666664,
-      "f1": 0.07502374169040836,
-      "temporal_iou": 0.04,
-      "roc_auc": 0.6617178137305256,
-      "pr_auc": 0.3642823243481554,
-      "tn": 1296.6666666666667,
-      "fp": 1.3333333333333333,
-      "fn": 46.0,
-      "tp": 2.0,
-      "event_recall": 0.1111111111111111
-    },
-    {
-      "anomaly_type": "drift",
-      "strength": 2.0,
-      "seed": 202.0,
-      "events": 12.0,
-      "mean_realized_strength": 1.2279286330546408,
-      "precision": 0.5650793650793651,
-      "recall": 0.1875,
-      "f1": 0.2809663454824745,
-      "temporal_iou": 0.16534391534391535,
-      "roc_auc": 0.8051275466529705,
-      "pr_auc": 0.5043840075468285,
-      "tn": 1291.3333333333333,
-      "fp": 6.666666666666667,
-      "fn": 39.0,
-      "tp": 9.0,
-      "event_recall": 0.5555555555555556
-    },
-    {
-      "anomaly_type": "level_shift",
-      "strength": 0.5,
-      "seed": 202.0,
-      "events": 12.0,
-      "mean_realized_strength": 0.4980931857943587,
-      "precision": 0.5,
-      "recall": 0.013888888888888888,
-      "f1": 0.026938775510204082,
-      "temporal_iou": 0.013747165532879817,
-      "roc_auc": 0.6421792073275124,
-      "pr_auc": 0.40075594624202754,
-      "tn": 1297.6666666666667,
-      "fp": 0.3333333333333333,
-      "fn": 47.333333333333336,
-      "tp": 0.6666666666666666,
-      "event_recall": 0.05555555555555555
-    },
-    {
-      "anomaly_type": "level_shift",
-      "strength": 1.0,
-      "seed": 202.0,
-      "events": 12.0,
-      "mean_realized_strength": 0.9860523058030393,
-      "precision": 0.6,
-      "recall": 0.0625,
-      "f1": 0.11320754716981134,
-      "temporal_iou": 0.06,
-      "roc_auc": 0.7085580380071906,
-      "pr_auc": 0.4946261715433322,
-      "tn": 1296.0,
-      "fp": 2.0,
-      "fn": 45.0,
-      "tp": 3.0,
-      "event_recall": 0.2222222222222222
-    },
-    {
-      "anomaly_type": "level_shift",
-      "strength": 2.0,
-      "seed": 202.0,
-      "events": 12.0,
-      "mean_realized_strength": 1.9528282108335082,
-      "precision": 0.7246490442054959,
-      "recall": 0.4513888888888889,
-      "f1": 0.5555485232067511,
-      "temporal_iou": 0.38482220877865164,
-      "roc_auc": 0.8759416195856873,
-      "pr_auc": 0.6727712245276752,
-      "tn": 1289.6666666666667,
-      "fp": 8.333333333333334,
-      "fn": 26.333333333333332,
-      "tp": 21.666666666666668,
-      "event_recall": 0.9166666666666666
-    },
-    {
-      "anomaly_type": "spike",
-      "strength": 0.5,
-      "seed": 202.0,
-      "events": 20.0,
-      "mean_realized_strength": 0.5020544117006164,
-      "precision": 0.1111111111111111,
-      "recall": 0.016666666666666666,
-      "f1": 0.028985507246376812,
-      "temporal_iou": 0.015151515151515152,
-      "roc_auc": 0.666289592760181,
-      "pr_auc": 0.4726239563302368,
-      "tn": 1325.3333333333333,
-      "fp": 0.6666666666666666,
-      "fn": 19.666666666666668,
-      "tp": 0.3333333333333333,
-      "event_recall": 0.016666666666666666
-    },
-    {
-      "anomaly_type": "spike",
-      "strength": 1.0,
-      "seed": 202.0,
-      "events": 20.0,
-      "mean_realized_strength": 1.0019745249922076,
-      "precision": 0.7142857142857143,
-      "recall": 0.25,
-      "f1": 0.3703703703703704,
-      "temporal_iou": 0.2289666854884246,
-      "roc_auc": 0.8566804927099044,
-      "pr_auc": 0.6847318882687827,
-      "tn": 1324.0,
-      "fp": 2.0,
-      "fn": 15.0,
-      "tp": 5.0,
-      "event_recall": 0.25
-    },
-    {
-      "anomaly_type": "spike",
-      "strength": 2.0,
-      "seed": 202.0,
-      "events": 20.0,
-      "mean_realized_strength": 2.0004296426971755,
-      "precision": 0.7192982456140351,
-      "recall": 0.6833333333333332,
-      "f1": 0.7008547008547009,
-      "temporal_iou": 0.5476190476190476,
-      "roc_auc": 0.9226055806938159,
-      "pr_auc": 0.8044607180878381,
-      "tn": 1320.6666666666667,
-      "fp": 5.333333333333333,
-      "fn": 6.333333333333333,
-      "tp": 13.666666666666666,
-      "event_recall": 0.6833333333333332
-    },
-    {
-      "anomaly_type": "stuck_at",
-      "strength": 1.0,
-      "seed": 202.0,
-      "events": 6.666666666666667,
-      "mean_realized_strength": 1.133858170640586,
-      "precision": 0.8690476190476191,
-      "recall": 0.14814814814814814,
-      "f1": 0.2456989247311828,
-      "temporal_iou": 0.14406406406406405,
-      "roc_auc": 0.6426218071951674,
-      "pr_auc": 0.495883487401164,
-      "tn": 1305.0,
-      "fp": 1.0,
-      "fn": 33.666666666666664,
-      "tp": 6.333333333333333,
-      "event_recall": 0.2916666666666667
-    }
-  ],
-  "noise_robustness": {
-    "0.1": {
-      "visitors": {
-        "mae": 12.701587415523445,
-        "relative_to_clean": 1.0008353999072874
-      },
-      "avgDuration": {
-        "mae": 4.050876363966879,
-        "relative_to_clean": 1.0048469550321453
+  "warning": "Die Ground Truth ist synthetisch. Der Recall gilt nur für die injizierten Typen und Stärken, nicht für unbekannte reale Anomalien.",
+  "results": {
+    "spike": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 0.4989567901783933,
+          "point": {
+            "precision": 0.3333333333333333,
+            "recall": 0.016666666666666666,
+            "f1": 0.031746031746031744,
+            "temporal_iou": 0.016666666666666666,
+            "roc_auc": 0.6638009049773755,
+            "pr_auc": 0.04072562594217894
+          },
+          "event": {
+            "precision": 0.3333333333333333,
+            "recall": 0.016666666666666666,
+            "f1": 0.031746031746031744,
+            "mean_iou": 0.016666666666666666,
+            "mean_delay_hours": 0.0
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 1.0004090132036556,
+          "point": {
+            "precision": 0.7000000000000001,
+            "recall": 0.21666666666666665,
+            "f1": 0.32136752136752134,
+            "temporal_iou": 0.19347826086956524,
+            "roc_auc": 0.7922699849170437,
+            "pr_auc": 0.2137661803967935
+          },
+          "event": {
+            "precision": 0.8190476190476191,
+            "recall": 0.21666666666666665,
+            "f1": 0.3392592592592593,
+            "mean_iou": 0.20555555555555557,
+            "mean_delay_hours": 0.0
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 1.9999509717493007,
+          "point": {
+            "precision": 0.823529411764706,
+            "recall": 0.65,
+            "f1": 0.7249602543720192,
+            "temporal_iou": 0.5738888888888888,
+            "roc_auc": 0.910042735042735,
+            "pr_auc": 0.5980438783901886
+          },
+          "event": {
+            "precision": 0.9743589743589745,
+            "recall": 0.65,
+            "f1": 0.7795603089720737,
+            "mean_iou": 0.6055555555555555,
+            "mean_delay_hours": 0.0
+          }
+        }
       }
     },
-    "0.25": {
-      "visitors": {
-        "mae": 13.809879702931706,
-        "relative_to_clean": 1.0881644965308135
-      },
-      "avgDuration": {
-        "mae": 4.0936875920564715,
-        "relative_to_clean": 1.0154665662771767
+    "dip": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 0.4739831505032877,
+          "point": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "temporal_iou": 0.0,
+            "roc_auc": 0.6430618401206636,
+            "pr_auc": 0.04442326372671005
+          },
+          "event": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "mean_iou": 0.0,
+            "mean_delay_hours": null
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 0.9076026709129413,
+          "point": {
+            "precision": 0.9333333333333332,
+            "recall": 0.21666666666666665,
+            "f1": 0.3401122334455668,
+            "temporal_iou": 0.21349206349206348,
+            "roc_auc": 0.7972347913524384,
+            "pr_auc": 0.1791105664150274
+          },
+          "event": {
+            "precision": 0.9333333333333332,
+            "recall": 0.21666666666666665,
+            "f1": 0.3401122334455668,
+            "mean_iou": 0.21666666666666665,
+            "mean_delay_hours": 0.0
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 1.735577509055535,
+          "point": {
+            "precision": 0.9246031746031745,
+            "recall": 0.5333333333333333,
+            "f1": 0.6713573360378634,
+            "temporal_iou": 0.5064213564213564,
+            "roc_auc": 0.903733031674208,
+            "pr_auc": 0.5191905112762797
+          },
+          "event": {
+            "precision": 0.9246031746031745,
+            "recall": 0.5333333333333333,
+            "f1": 0.6713573360378634,
+            "mean_iou": 0.5333333333333333,
+            "mean_delay_hours": 0.0
+          }
+        }
+      }
+    },
+    "level_shift": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.504960751151278,
+          "point": {
+            "precision": 0.75,
+            "recall": 0.1111111111111111,
+            "f1": 0.1883963494132986,
+            "temporal_iou": 0.11013038548752833,
+            "roc_auc": 0.642666067454203,
+            "pr_auc": 0.09241026173904215
+          },
+          "event": {
+            "precision": 1.0,
+            "recall": 0.2222222222222222,
+            "f1": 0.36190476190476195,
+            "mean_iou": 0.1074074074074074,
+            "mean_delay_hours": 1.888888888888889
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.9831847729284265,
+          "point": {
+            "precision": 0.8172657952069716,
+            "recall": 0.3333333333333333,
+            "f1": 0.4711862211862212,
+            "temporal_iou": 0.30924044508950166,
+            "roc_auc": 0.798744863893169,
+            "pr_auc": 0.33067664698221183
+          },
+          "event": {
+            "precision": 0.9523809523809524,
+            "recall": 0.5555555555555555,
+            "f1": 0.6994152046783625,
+            "mean_iou": 0.2847222222222222,
+            "mean_delay_hours": 1.0138888888888888
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 1.8945371658353702,
+          "point": {
+            "precision": 0.8205802646261757,
+            "recall": 0.7638888888888888,
+            "f1": 0.7892785533234972,
+            "temporal_iou": 0.6541638186375028,
+            "roc_auc": 0.9099148262283857,
+            "pr_auc": 0.7062974163249995
+          },
+          "event": {
+            "precision": 0.9410256410256409,
+            "recall": 0.8611111111111112,
+            "f1": 0.8957575757575759,
+            "mean_iou": 0.6560185185185184,
+            "mean_delay_hours": 0.25555555555555554
+          }
+        }
+      }
+    },
+    "drift": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.3107488949365778,
+          "point": {
+            "precision": 0.27777777777777773,
+            "recall": 0.013888888888888888,
+            "f1": 0.026405228758169936,
+            "temporal_iou": 0.013469387755102041,
+            "roc_auc": 0.5462303115904811,
+            "pr_auc": 0.050425679146891667
+          },
+          "event": {
+            "precision": 0.6666666666666666,
+            "recall": 0.05555555555555555,
+            "f1": 0.10256410256410257,
+            "mean_iou": 0.010185185185185184,
+            "mean_delay_hours": 3.0
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.6220340597129393,
+          "point": {
+            "precision": 0.6139069264069263,
+            "recall": 0.17361111111111113,
+            "f1": 0.2696202387461272,
+            "temporal_iou": 0.15602102300215506,
+            "roc_auc": 0.6899557010785825,
+            "pr_auc": 0.16294401161500305
+          },
+          "event": {
+            "precision": 0.8857142857142857,
+            "recall": 0.4444444444444444,
+            "f1": 0.589611283109735,
+            "mean_iou": 0.14120370370370372,
+            "mean_delay_hours": 2.4166666666666665
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 1.2295571084751715,
+          "point": {
+            "precision": 0.6553381032547699,
+            "recall": 0.4166666666666667,
+            "f1": 0.5084979423868313,
+            "temporal_iou": 0.3410289233781871,
+            "roc_auc": 0.884063088512241,
+            "pr_auc": 0.49015253595103553
+          },
+          "event": {
+            "precision": 0.8757575757575758,
+            "recall": 0.7222222222222222,
+            "f1": 0.790325616412573,
+            "mean_iou": 0.325,
+            "mean_delay_hours": 1.6851851851851851
+          }
+        }
+      }
+    },
+    "stuck_at": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "6_hours": {
+          "runs": 3,
+          "mean_events_per_run": 7.0,
+          "mean_realized_log_iqr_strength": 1.0834412256212014,
+          "point": {
+            "precision": 0.9087301587301587,
+            "recall": 0.22982804232804233,
+            "f1": 0.3372041214146477,
+            "temporal_iou": 0.2165368562884091,
+            "roc_auc": 0.6639511744388545,
+            "pr_auc": 0.2233434107653807
+          },
+          "event": {
+            "precision": 0.9444444444444445,
+            "recall": 0.37103174603174605,
+            "f1": 0.5030449776212488,
+            "mean_iou": 0.20063303099017385,
+            "mean_delay_hours": 2.277777777777778
+          }
+        }
       }
     }
   },
-  "warning": "Synthetische Labels ersetzen keine fachlich bestätigten Ereignisse."
+  "reference_one_percent_detector": {
+    "spike": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 0.4989567901783933,
+          "point": {
+            "precision": 0.6666666666666666,
+            "recall": 0.05000000000000001,
+            "f1": 0.09235209235209235,
+            "temporal_iou": 0.05000000000000001,
+            "roc_auc": 0.6638009049773755,
+            "pr_auc": 0.04072562594217894
+          },
+          "event": {
+            "precision": 0.6666666666666666,
+            "recall": 0.05000000000000001,
+            "f1": 0.09235209235209235,
+            "mean_iou": 0.05000000000000001,
+            "mean_delay_hours": 0.0
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 1.0004090132036556,
+          "point": {
+            "precision": 0.9523809523809524,
+            "recall": 0.3,
+            "f1": 0.454320987654321,
+            "temporal_iou": 0.29523809523809524,
+            "roc_auc": 0.7922699849170437,
+            "pr_auc": 0.2137661803967935
+          },
+          "event": {
+            "precision": 0.9523809523809524,
+            "recall": 0.3,
+            "f1": 0.454320987654321,
+            "mean_iou": 0.3,
+            "mean_delay_hours": 0.0
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 1.9999509717493007,
+          "point": {
+            "precision": 0.9326923076923078,
+            "recall": 0.65,
+            "f1": 0.7643097643097643,
+            "temporal_iou": 0.6192640692640693,
+            "roc_auc": 0.910042735042735,
+            "pr_auc": 0.5980438783901886
+          },
+          "event": {
+            "precision": 0.9583333333333334,
+            "recall": 0.65,
+            "f1": 0.771885521885522,
+            "mean_iou": 0.6416666666666667,
+            "mean_delay_hours": 0.0
+          }
+        }
+      }
+    },
+    "dip": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 0.4739831505032877,
+          "point": {
+            "precision": 0.3333333333333333,
+            "recall": 0.016666666666666666,
+            "f1": 0.031746031746031744,
+            "temporal_iou": 0.016666666666666666,
+            "roc_auc": 0.6430618401206636,
+            "pr_auc": 0.04442326372671005
+          },
+          "event": {
+            "precision": 0.3333333333333333,
+            "recall": 0.016666666666666666,
+            "f1": 0.031746031746031744,
+            "mean_iou": 0.016666666666666666,
+            "mean_delay_hours": 0.0
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 0.9076026709129413,
+          "point": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.38729172062505396,
+            "temporal_iou": 0.25,
+            "roc_auc": 0.7972347913524384,
+            "pr_auc": 0.1791105664150274
+          },
+          "event": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.3872917206250539,
+            "mean_iou": 0.25,
+            "mean_delay_hours": 0.0
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 20.0,
+          "mean_realized_log_iqr_strength": 1.735577509055535,
+          "point": {
+            "precision": 0.9761904761904763,
+            "recall": 0.5499999999999999,
+            "f1": 0.698357652293398,
+            "temporal_iou": 0.5396825396825397,
+            "roc_auc": 0.903733031674208,
+            "pr_auc": 0.5191905112762797
+          },
+          "event": {
+            "precision": 0.9761904761904763,
+            "recall": 0.5499999999999999,
+            "f1": 0.698357652293398,
+            "mean_iou": 0.5499999999999999,
+            "mean_delay_hours": 0.0
+          }
+        }
+      }
+    },
+    "level_shift": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.504960751151278,
+          "point": {
+            "precision": 0.8888888888888888,
+            "recall": 0.05555555555555556,
+            "f1": 0.10264231478755025,
+            "temporal_iou": 0.05527210884353742,
+            "roc_auc": 0.642666067454203,
+            "pr_auc": 0.09241026173904215
+          },
+          "event": {
+            "precision": 0.8888888888888888,
+            "recall": 0.13888888888888887,
+            "f1": 0.23399810066476734,
+            "mean_iou": 0.041666666666666664,
+            "mean_delay_hours": 1.1111111111111112
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.9831847729284265,
+          "point": {
+            "precision": 0.9317460317460317,
+            "recall": 0.2916666666666667,
+            "f1": 0.44401775046936337,
+            "temporal_iou": 0.2862131519274376,
+            "roc_auc": 0.798744863893169,
+            "pr_auc": 0.33067664698221183
+          },
+          "event": {
+            "precision": 0.8611111111111112,
+            "recall": 0.5,
+            "f1": 0.6307992202729045,
+            "mean_iou": 0.27777777777777773,
+            "mean_delay_hours": 0.36984126984126986
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 1.8945371658353702,
+          "point": {
+            "precision": 0.9598930481283423,
+            "recall": 0.6527777777777778,
+            "f1": 0.776809638701169,
+            "temporal_iou": 0.6358460050686942,
+            "roc_auc": 0.9099148262283857,
+            "pr_auc": 0.7062974163249995
+          },
+          "event": {
+            "precision": 0.9166666666666666,
+            "recall": 0.8611111111111112,
+            "f1": 0.8863636363636364,
+            "mean_iou": 0.626388888888889,
+            "mean_delay_hours": 0.2222222222222222
+          }
+        }
+      }
+    },
+    "drift": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "0.5": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.3107488949365778,
+          "point": {
+            "precision": 0.2222222222222222,
+            "recall": 0.013888888888888888,
+            "f1": 0.026143790849673203,
+            "temporal_iou": 0.013605442176870748,
+            "roc_auc": 0.5462303115904811,
+            "pr_auc": 0.050425679146891667
+          },
+          "event": {
+            "precision": 0.2222222222222222,
+            "recall": 0.05555555555555555,
+            "f1": 0.08888888888888889,
+            "mean_iou": 0.013888888888888888,
+            "mean_delay_hours": 3.0
+          }
+        },
+        "1.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 0.6220340597129393,
+          "point": {
+            "precision": 0.919047619047619,
+            "recall": 0.1527777777777778,
+            "f1": 0.26102403343782654,
+            "temporal_iou": 0.15065192743764175,
+            "roc_auc": 0.6899557010785825,
+            "pr_auc": 0.16294401161500305
+          },
+          "event": {
+            "precision": 0.888888888888889,
+            "recall": 0.4444444444444445,
+            "f1": 0.5925925925925926,
+            "mean_iou": 0.1527777777777778,
+            "mean_delay_hours": 2.3555555555555556
+          }
+        },
+        "2.0": {
+          "runs": 3,
+          "mean_events_per_run": 12.0,
+          "mean_realized_log_iqr_strength": 1.2295571084751715,
+          "point": {
+            "precision": 0.9663299663299663,
+            "recall": 0.40972222222222227,
+            "f1": 0.5746157224418095,
+            "temporal_iou": 0.40433673469387754,
+            "roc_auc": 0.884063088512241,
+            "pr_auc": 0.49015253595103553
+          },
+          "event": {
+            "precision": 0.9296296296296296,
+            "recall": 0.6666666666666666,
+            "f1": 0.7723095617832461,
+            "mean_iou": 0.40972222222222227,
+            "mean_delay_hours": 1.4351851851851851
+          }
+        }
+      }
+    },
+    "stuck_at": {
+      "one_event_per_sensor": true,
+      "strengths": {
+        "6_hours": {
+          "runs": 3,
+          "mean_events_per_run": 7.0,
+          "mean_realized_log_iqr_strength": 1.0834412256212014,
+          "point": {
+            "precision": 0.6458333333333334,
+            "recall": 0.19543650793650794,
+            "f1": 0.29670757841418277,
+            "temporal_iou": 0.19266795865633077,
+            "roc_auc": 0.6639511744388545,
+            "pr_auc": 0.2233434107653807
+          },
+          "event": {
+            "precision": 0.5833333333333334,
+            "recall": 0.26785714285714285,
+            "f1": 0.3636363636363636,
+            "mean_iou": 0.19543650793650794,
+            "mean_delay_hours": 1.6666666666666667
+          }
+        }
+      }
+    }
+  }
 }
