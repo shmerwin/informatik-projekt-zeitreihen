@@ -4,7 +4,7 @@
 \section{Training und Detektorkalibrierung}
 
 Die in Abschnitt~\ref{sec:Methode_Forecaster} begründete feste Architektur wird
-21 Epochen auf 4.429 gemessenen Zielen aus Training und Tuning trainiert. Der
+21 Epochen auf 4.401 gemessenen Zielen aus Training und Tuning trainiert. Der
 getrennte Kalibrierungsabschnitt und der Testabschnitt werden dabei nicht zum
 Anpassen der Modellgewichte verwendet. Der Trainingsverlauf ist in
 Abbildung~\ref{fig:forecaster_training} dargestellt.
@@ -17,13 +17,14 @@ Abbildung~\ref{fig:forecaster_training} dargestellt.
   \label{fig:forecaster_training}
 \end{figure}
 
-Die gemeinsame empirische 1-\%-Schwelle beträgt 0{,}7486. Unter den 15
-zulässigen Alarmregeln wählt die Kalibrierung zusätzlich die Bedingung, dass
-mindestens drei der letzten vier lückenlosen Messscores den niedrigeren Wert
-0{,}3082 überschreiten. Auf den unveränderten 368 Kalibrierungspunkten erzeugt
+Die empirische 1-\%-Intervallschwelle und damit der reine Referenzdetektor
+liegen bei 0{,}6069. Für die Hybridregel wählt die Kalibrierung eine strengere
+hohe Einzelpunktschwelle von 0{,}7791 sowie die Bedingung, dass mindestens zwei
+der letzten drei lückenlosen Messscores den niedrigeren Wert 0{,}3579
+überschreiten. Auf den unveränderten 368 Kalibrierungspunkten erzeugt
 diese Regel zwei Alarme beziehungsweise 0{,}54~\% und hält damit das vorab
 festgelegte 1-\%-Budget ein. Der Macro-Ereignis-F1 der
-Kalibrierungsinjektionen beträgt 0{,}746. Dieser Wert ist ein Auswahlkriterium
+Kalibrierungsinjektionen beträgt 0{,}734. Dieser Wert ist ein Auswahlkriterium
 und kein Testergebnis.
 
 \section{Prognosegüte im Testabschnitt}
@@ -38,8 +39,8 @@ und kein Testergebnis.
     \hline
     Ziel & MAE & RMSE & MASE & rel. MAE & Abdeckung & Breite \\
     \hline
-    Visitors & 12{,}114 & 22{,}962 & 0{,}622 & 0{,}745 & 99{,}63~\% & 224{,}99 \\
-    AvgDuration & 4{,}124 & 7{,}540 & 0{,}855 & 0{,}821 & 99{,}55~\% & 98{,}54 \\
+    Visitors & 11{,}856 & 23{,}006 & 0{,}637 & 0{,}729 & 99{,}78~\% & 180{,}59 \\
+    AvgDuration & 4{,}121 & 7{,}614 & 0{,}870 & 0{,}821 & 99{,}26~\% & 73{,}65 \\
     \hline
   \end{tabular}
 \end{table}
@@ -47,17 +48,18 @@ und kein Testergebnis.
 Beide MASE-Werte und beide relativen Test-MAE-Werte liegen unter eins. Die
 Medianprognose ist damit im Mittel genauer als die jeweils verwendete
 saisonale Skalierung beziehungsweise $t-24$-Testbaseline. Die gemeinsame
-empirische Abdeckung beider Zielgrößen beträgt 99{,}26~\%. Gleichzeitig sind
+empirische Abdeckung beider Zielgrößen beträgt 99{,}11~\%. Gleichzeitig sind
 die Intervalle insbesondere für die Passantenzahl breit. Die hohe Abdeckung
 ist deshalb zusammen mit der Breite zu interpretieren und belegt allein keine
 hohe Trennschärfe des Anomaliedetektors.
 
 \section{Kandidaten im unveränderten Datensatz}
 
-Die eingefrorene Hybridregel markiert 15 der 1.346 gemessenen Testpunkte. Sie
-bilden elf zusammenhängende Forecast-Ereignisse. Die ursprüngliche reine
-1-\%-Punktschwelle hätte zehn Punkte markiert; die Persistenzregel ergänzt somit
-fünf moderate Punkte. Abbildung~\ref{fig:forecaster_example} zeigt den Sensor
+Die eingefrorene Hybridregel markiert 18 der 1.346 gemessenen Testpunkte. Sie
+bilden elf zusammenhängende Forecast-Ereignisse. Die reine
+1-\%-Referenzschwelle markiert zwölf Punkte. Innerhalb der Hybridregel stammen
+sieben Alarme von der strengeren hohen Schwelle und elf ausschließlich von der
+Persistenzregel. Abbildung~\ref{fig:forecaster_example} zeigt den Sensor
 mit den meisten Forecast-Kandidaten. Die rote Markierung bedeutet eine
 statistische Abweichung und keine fachlich bestätigte Anomalie.
 
@@ -75,6 +77,17 @@ Sie sind Hinweise auf fehlende Sensordaten, aber nicht automatisch Anomalien
 des Passantenverhaltens. Werden Forecast- und Datenqualitätsalarme gemeinsam
 gruppiert, entstehen 282 Ereignisse; diese Zahl darf daher nicht als Anzahl
 erkannter Verhaltensanomalien interpretiert werden.
+
+Eine erste manuelle Sichtung liegt für zehn der aktuell 18 markierten Stunden
+vor. Sieben davon wurden binär eingeordnet, drei blieben offen und acht weitere
+Stunden sind nach dem erneuten Training noch ungeprüft. Ein aktuelles
+Rosengarten-Ereignis überlappt drei Stunden, die wegen eines extern
+dokumentierten Umfeldereignisses vorläufig positiv markiert wurden. Dies
+unterstützt die Plausibilität dieses einzelnen Kandidaten, bestätigt aber weder
+seine Ursache noch die Gesamtleistung auf realen Anomalien. Da die Punkte
+gezielt aus einem früheren Modelllauf ausgewählt wurden, werden daraus keine
+Precision-, Recall- oder F1-Werte berechnet. Die Einordnungen und Quellen stehen
+in \texttt{manual\_labels.csv}.
 
 \section{Ergebnisse der Anomalieinjektion}
 
@@ -94,27 +107,26 @@ gepaarten unveränderten Lauf.
     \hline
     Typ & Punkt-R & Punkt-F1 & Ereignis-R & Ereignis-F1 & Ref.-R & Ref.-F1 \\
     \hline
-    Spike, 2{,}0 & 0{,}633 & 0{,}732 & 0{,}633 & 0{,}767 & 0{,}633 & 0{,}775 \\
-    Dip, 2{,}0 & 0{,}533 & 0{,}651 & 0{,}533 & 0{,}658 & 0{,}533 & 0{,}672 \\
-    Level-Shift, 2{,}0 & 0{,}708 & 0{,}742 & 0{,}861 & 0{,}878 & 0{,}833 & 0{,}883 \\
-    Drift, 2{,}0 & 0{,}458 & 0{,}543 & 0{,}750 & 0{,}810 & 0{,}694 & 0{,}780 \\
-    Stuck-at, 6 h & 0{,}237 & 0{,}345 & 0{,}371 & 0{,}499 & 0{,}315 & 0{,}404 \\
+    Spike, 2{,}0 & 0{,}650 & 0{,}725 & 0{,}650 & 0{,}780 & 0{,}650 & 0{,}772 \\
+    Dip, 2{,}0 & 0{,}533 & 0{,}671 & 0{,}533 & 0{,}671 & 0{,}550 & 0{,}698 \\
+    Level-Shift, 2{,}0 & 0{,}764 & 0{,}789 & 0{,}861 & 0{,}896 & 0{,}861 & 0{,}886 \\
+    Drift, 2{,}0 & 0{,}417 & 0{,}508 & 0{,}722 & 0{,}790 & 0{,}667 & 0{,}772 \\
+    Stuck-at, 6 h & 0{,}230 & 0{,}337 & 0{,}371 & 0{,}503 & 0{,}268 & 0{,}364 \\
     \hline
   \end{tabular}
 \end{table}
 
-Die Persistenzregel erhöht den Ereignis-Recall erwartungsgemäß bei
-mehrstündigen Veränderungen: bei starkem Level-Shift von 0{,}833 auf 0{,}861,
-bei starkem Drift von 0{,}694 auf 0{,}750 und bei Stuck-at von 0{,}315 auf
-0{,}371. Für einstündige Spikes und Dips entsteht kein Recall-Gewinn. Bei
-Level-Shift und den punktuellen Typen sinkt der Ereignis-F1 geringfügig, weil
-zusätzliche Alarme die Precision belasten. Die Regel verbessert somit nicht
-jede einzelne Kennzahl, erhöht aber gezielt die Sensitivität für anhaltende
-Abweichungen, ohne die empirische Kalibrierungs-Alarmrate zu erhöhen.
+Die Persistenzregel erhöht den Ereignis-Recall bei starkem Drift von 0{,}667
+auf 0{,}722 und bei Stuck-at von 0{,}268 auf 0{,}371. Beim Level-Shift bleibt
+der Recall mit 0{,}861 gleich, während der Ereignis-F1 von 0{,}886 auf 0{,}896
+steigt. Bei Spikes verbessert sich der F1 geringfügig; beim Dip sinken Recall
+und F1. Die Regel verbessert somit nicht jede einzelne Kennzahl, erhöht aber
+gezielt die Sensitivität für einige anhaltende Abweichungen, ohne die
+empirische Kalibrierungs-Alarmrate zu erhöhen.
 
 Schwache Injektionen bleiben schwierig. Bei Stärke 0{,}5 beträgt der
-Ereignis-Recall 0{,}067 für Spike, 0{,}017 für Dip, 0{,}167 für Level-Shift
-und 0{,}028 für Drift. Der Detektor erkennt folglich nicht jede definierte
+Ereignis-Recall 0{,}017 für Spike, 0{,}000 für Dip, 0{,}222 für Level-Shift
+und 0{,}056 für Drift. Der Detektor erkennt folglich nicht jede definierte
 Anomalie. Die vollständigen Werte aller Stärken einschließlich Precision,
 PR-AUC, IoU und Verzögerung stehen in
 \texttt{injection\_benchmark.csv} und
@@ -138,31 +150,31 @@ wurden für kein Modell zur Auswahl der Netzschichten verwendet.
     \hline
     Modell & Parameter & Punkt-F1 & PR-AUC & Ereignis-R & Ereignis-F1 \\
     \hline
-    Ursprungs-Forecaster & 17.282 & 0{,}393 & 0{,}250 & 0{,}486 & 0{,}535 \\
-    Forecaster & 22.798 & 0{,}603 & 0{,}502 & 0{,}630 & 0{,}722 \\
-    Autoencoder & 3.426 & 0{,}425 & 0{,}237 & 0{,}552 & 0{,}581 \\
+    Ursprungs-Forecaster & 17.282 & 0{,}415 & 0{,}242 & 0{,}499 & 0{,}529 \\
+    Forecaster & 22.798 & 0{,}606 & 0{,}507 & 0{,}628 & 0{,}728 \\
+    Autoencoder & 3.426 & 0{,}477 & 0{,}147 & 0{,}614 & 0{,}607 \\
     \hline
   \end{tabular}
 \end{table}
 
 Gegenüber dem Ursprungs-Forecaster steigt der Punkt-F1 des aktuellen Systems
-von 0{,}393 auf 0{,}603, die PR-AUC von 0{,}250 auf 0{,}502, der
-Ereignis-Recall von 0{,}486 auf 0{,}630 und der Ereignis-F1 von 0{,}535 auf
-0{,}722. Relativ entspricht dies Verbesserungen von 53{,}3~\%, 101{,}0~\%,
-29{,}5~\% und 34{,}9~\%. Der Vergleich belegt den Unterschied zwischen den
+von 0{,}415 auf 0{,}606, die PR-AUC von 0{,}242 auf 0{,}507, der
+Ereignis-Recall von 0{,}499 auf 0{,}628 und der Ereignis-F1 von 0{,}529 auf
+0{,}728. Relativ entspricht dies Verbesserungen von 46{,}1~\%, 109{,}6~\%,
+25{,}7~\% und 37{,}6~\%. Der Vergleich belegt den Unterschied zwischen den
 beiden vollständigen Modellständen; er weist nicht nach, welchen Einzelanteil
 Sensor-Embedding, Quantilausgabe, Dense-Schicht oder Dropout daran haben.
 
 Die Verbesserung betrifft vor allem die Anomalietrennung und nicht jede
-Prognosekennzahl. Für \texttt{visitors} sinkt die MAE von 12{,}596 auf 12{,}114
-und die MASE von 0{,}647 auf 0{,}622. Bei \texttt{avgDuration} liegt das
-Ursprungsmodell mit einer MAE von 4{,}108 und einer MASE von 0{,}851 knapp vor
-den aktuellen Werten 4{,}124 und 0{,}855. Ein allgemein kleinerer
+Prognosekennzahl. Für \texttt{visitors} sinkt die MAE von 12{,}797 auf 11{,}856
+und die MASE von 0{,}688 auf 0{,}637. Bei \texttt{avgDuration} liegt das
+Ursprungsmodell mit einer MAE von 4{,}101 und einer MASE von 0{,}866 knapp vor
+den aktuellen Werten 4{,}121 und 0{,}870. Ein allgemein kleinerer
 Prognosefehler allein erklärt die bessere Anomalieerkennung somit nicht.
 
 Der Autoencoder benötigt rund 85~\% weniger Parameter, erkennt die geprüften
 Anomalien aber insgesamt schlechter. Seine höchsten Ereignis-F1-Werte erreicht
-er bei Level-Shifts mit 0{,}764 und Drifts mit 0{,}698. Gerade für diese
+er bei Level-Shifts mit 0{,}745 und Drifts mit 0{,}689. Gerade für diese
 mehrstündigen Veränderungen liefert die Rekonstruktion somit ein brauchbares
 zusätzliches Ergebnis. Der Forecaster liegt jedoch bei jeder der fünf
 Anomaliearten vorn und bleibt deshalb für den aktuellen Datensatz das stärkere

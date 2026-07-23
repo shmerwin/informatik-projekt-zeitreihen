@@ -48,6 +48,26 @@ class PreprocessingTests(unittest.TestCase):
             temp_a.cleanup()
             temp_b.cleanup()
 
+    def test_systemwide_zero_is_treated_as_missing(self):
+        records = []
+        for sensor in range(10):
+            for hour, value in [(0, 10), (1, 0), (2, 20)]:
+                records.append({
+                    "timestamp": f"2025-01-01T{hour:02d}:00:00Z",
+                    "name": f"Sensor {sensor}",
+                    "visitors": value,
+                    "avgDuration": value / 2,
+                })
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "raw.json"
+            path.write_text(json.dumps({"sensordata": records}), encoding="utf-8")
+            result = process_and_impute_full_data(path, "2025-01-02T00:00:00Z")
+
+        outage = result[result["timestamp"] == pd.Timestamp("2025-01-01T01:00:00Z")]
+        self.assertTrue(outage["is_imputed"].all())
+        self.assertTrue((outage["imputation_method"] == "causal_ffill").all())
+
 
 class CalibrationTests(unittest.TestCase):
     def test_joint_threshold_controls_both_features_once(self):

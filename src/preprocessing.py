@@ -64,6 +64,14 @@ def process_and_impute_full_data(filepath, train_end=TRAIN_END):
     gemessen = df.pivot_table(
         index="timestamp", columns="name", values=FEATURES, aggfunc="mean"
     ).resample("1h").asfreq()
+
+    # Wenn mindestens zehn Sensoren gleichzeitig exakt 0 Besucher und
+    # 0 Verweildauer melden, handelt es sich um einen gemeinsamen Systemausfall.
+    vorhanden = gemessen["visitors"].notna() & gemessen["avgDuration"].notna()
+    nullmeldung = gemessen["visitors"].eq(0) & gemessen["avgDuration"].eq(0)
+    systemausfall = vorhanden.sum(axis=1).ge(10) & (nullmeldung | ~vorhanden).all(axis=1)
+    gemessen.loc[systemausfall] = np.nan
+
     laufzeiten = df.groupby("name")["timestamp"].agg(["min", "max"])
     aktiv = pd.DataFrame(False, index=gemessen.index, columns=gemessen.columns)
     for feature, sensor in gemessen.columns:
@@ -135,7 +143,7 @@ def save_processed_data(filepath, output_path=None):
 
     export = sauber.copy()
     export["timestamp"] = export["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    # pandas ersetzt hier NaN aus optionalen Metadaten zuverlässig durch null.
+    # pandas ersetzt hier NaN aus optionalen Metadaten durch null.
     records = json.loads(export.to_json(orient="records"))
     with open(output_path, "w", encoding="utf-8") as datei:
         json.dump({"sensordata": records}, datei, ensure_ascii=False, indent=2,

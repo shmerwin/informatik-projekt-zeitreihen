@@ -1,0 +1,88 @@
+{
+  "design": "Ursprünglich gemessene interne Trainingssegmente werden vollständig entfernt und anschließend durch dieselbe Pipeline rekonstruiert.",
+  "gap_lengths": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "summary": [
+    {
+      "gap_length": 1,
+      "imputation_method": "causal_ffill",
+      "hidden_points": 36,
+      "mae_visitors": 11.194444444444445,
+      "rmse_visitors": 16.831683087426388,
+      "mae_avgDuration": 4.3424999999999985,
+      "rmse_avgDuration": 6.0398576602065335
+    },
+    {
+      "gap_length": 2,
+      "imputation_method": "causal_ffill",
+      "hidden_points": 72,
+      "mae_visitors": 18.944444444444443,
+      "rmse_visitors": 32.4580926392445,
+      "mae_avgDuration": 4.708611111111111,
+      "rmse_avgDuration": 6.7349243169879465
+    },
+    {
+      "gap_length": 4,
+      "imputation_method": "causal_ffill",
+      "hidden_points": 72,
+      "mae_visitors": 14.958333333333334,
+      "rmse_visitors": 25.22592361484951,
+      "mae_avgDuration": 3.5913888888888885,
+      "rmse_avgDuration": 5.196548266771789
+    },
+    {
+      "gap_length": 4,
+      "imputation_method": "hour_mean",
+      "hidden_points": 64,
+      "mae_visitors": 22.546875,
+      "rmse_visitors": 46.6474476793747,
+      "mae_avgDuration": 2.8207812500000005,
+      "rmse_avgDuration": 4.081929116545265
+    },
+    {
+      "gap_length": 4,
+      "imputation_method": "weekday_hour_mean",
+      "hidden_points": 8,
+      "mae_visitors": 12.625,
+      "rmse_visitors": 17.553489681541958,
+      "mae_avgDuration": 2.0625,
+      "rmse_avgDuration": 2.454811601732402
+    },
+    {
+      "gap_length": 8,
+      "imputation_method": "causal_ffill",
+      "hidden_points": 72,
+      "mae_visitors": 22.0,
+      "rmse_visitors": 34.86920003543401,
+      "mae_avgDuration": 5.040555555555556,
+      "rmse_avgDuration": 9.216945595538204
+    },
+    {
+      "gap_length": 8,
+      "imputation_method": "hour_mean",
+      "hidden_points": 212,
+      "mae_visitors": 20.39622641509434,
+      "rmse_visitors": 30.604907733213157,
+      "mae_avgDuration": 3.35877358490566,
+      "rmse_avgDuration": 6.3399291704870375
+    },
+    {
+      "gap_length": 8,
+      "imputation_method": "weekday_hour_mean",
+      "hidden_points": 4,
+      "mae_visitors": 31.75,
+      "rmse_visitors": 50.78631705489186,
+      "mae_avgDuration": 1.9299999999999997,
+      "rmse_avgDuration": 2.50403674094451
+    }
+  ]
+}

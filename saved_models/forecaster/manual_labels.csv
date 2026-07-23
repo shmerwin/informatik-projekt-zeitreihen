@@ -1,0 +1,16 @@
+sensor,time,label,label_type,comment,source_url
+Innenstadt,2025-07-10T12:00:00Z,0,candidate_review,Historisch normale Variation.
+Innenstadt,2025-07-11T21:00:00Z,0,candidate_review,Historisch normale späte Stunde.
+Innenstadt,2025-07-13T21:00:00Z,,,Offen: gemeinsamer Niedrigwert oder Datenqualität.
+Kurpark,2025-07-11T05:00:00Z,0,candidate_review,Gemeinsamer stadtweiter Rückgang.
+Kurpark - Eingang Sprudelhof,2025-07-11T05:00:00Z,0,candidate_review,Gemeinsamer stadtweiter Rückgang.
+Kurpark - Zentrum Süd,2025-07-11T05:00:00Z,0,candidate_review,Gemeinsamer stadtweiter Rückgang.
+Parkstraße 24,2025-07-10T15:00:00Z,0,candidate_review,Kleine Zählwerte und schwankende Rohmessungen.
+Parkstraße 24,2025-07-10T16:00:00Z,0,candidate_review,Persistenzpunkt ohne starke Einzelabweichung.
+Parkstraße 24,2025-07-12T13:00:00Z,,,Offen: niedrige Datenbasis und stark imputierter Kontext.
+Rosengarten,2025-07-10T17:00:00Z,1,externally_supported_event,Anstieg im Umfeld der Veranstaltung in der Trinkkuranlage.,https://www.bad-nauheim.de/de/lebenswert/kulturarbeit/sommerreihe
+Rosengarten,2025-07-10T18:00:00Z,1,externally_supported_event,Anstieg im Umfeld der Veranstaltung in der Trinkkuranlage.,https://www.bad-nauheim.de/de/lebenswert/kulturarbeit/sommerreihe
+Rosengarten,2025-07-10T19:00:00Z,1,externally_supported_event,Anstieg im Umfeld der Veranstaltung in der Trinkkuranlage.,https://www.bad-nauheim.de/de/lebenswert/kulturarbeit/sommerreihe
+Rosengarten,2025-07-10T20:00:00Z,1,externally_supported_event,Anstieg im Umfeld der Veranstaltung in der Trinkkuranlage.,https://www.bad-nauheim.de/de/lebenswert/kulturarbeit/sommerreihe
+Rosengarten,2025-07-12T17:00:00Z,,,Offen: möglicher Veranstaltungsbezug.
+Trafohaus Zanderstraße,2025-07-13T04:00:00Z,0,candidate_review,Normale Variation bei sehr kleiner Zählung.

@@ -1,0 +1,12 @@
+previous_model_event_id,sensor,start,end,label,confidence,interpretation,comment,source_url
+forecast-1,Innenstadt,2025-07-10T12:00:00Z,2025-07-10T12:00:00Z,0,high,normal_variation,"Verweildauer und Besucherzahl liegen im historischen Bereich derselben Stunde.",
+forecast-2,Innenstadt,2025-07-11T21:00:00Z,2025-07-11T21:00:00Z,0,high,normal_late_hour,"Historisch übliche späte Stunde; der Kontext ist zudem zu 54 Prozent imputiert.",
+forecast-3,Innenstadt,2025-07-13T21:00:00Z,2025-07-13T21:00:00Z,,low,shared_low_or_data_quality,"Viele Sensoren sind gleichzeitig sehr niedrig; fachliche Bestätigung fehlt.",
+forecast-4,Kurpark,2025-07-11T05:00:00Z,2025-07-11T05:00:00Z,0,medium,shared_morning_drop,"Gleichzeitiger Rückgang an fast allen Sensoren statt lokaler Abweichung.",
+forecast-5,Kurpark - Eingang Sprudelhof,2025-07-11T05:00:00Z,2025-07-11T05:00:00Z,0,medium,shared_morning_drop,"Gleichzeitiger Rückgang an fast allen Sensoren statt lokaler Abweichung.",
+forecast-6,Kurpark - Zentrum Süd,2025-07-11T05:00:00Z,2025-07-11T05:00:00Z,0,medium,shared_morning_drop,"Gleichzeitiger Rückgang an fast allen Sensoren statt lokaler Abweichung.",
+forecast-7,Parkstraße 24,2025-07-10T15:00:00Z,2025-07-10T16:00:00Z,0,high,low_volume_noise,"Sehr kleine Besucherzahlen und stark schwankende Rohmessungen erklären die Abweichung.",
+forecast-8,Parkstraße 24,2025-07-12T13:00:00Z,2025-07-12T13:00:00Z,,low,low_count_uncertain,"Nur ein Rohwert und 62.5 Prozent imputierter Kontext; keine sichere Einordnung.",
+forecast-9,Rosengarten,2025-07-10T17:00:00Z,2025-07-10T20:00:00Z,1,high,public_event,"Starker lokaler Anstieg passend zur Veranstaltung 'die feisten' um 20 Uhr in der benachbarten Trinkkuranlage.",https://www.bad-nauheim.de/de/lebenswert/kulturarbeit/sommerreihe
+forecast-10,Rosengarten,2025-07-12T17:00:00Z,2025-07-12T17:00:00Z,,medium,possible_public_event,"Plausibler Bezug zu einem Nachmittagskonzert; ohne Betreiberbestätigung offen.",
+forecast-11,Trafohaus Zanderstraße,2025-07-13T04:00:00Z,2025-07-13T04:00:00Z,0,high,normal_sunday_early,"Ein Besucher statt vorhergesagter 1.17 ist normale Kleinstzahlvariation.",

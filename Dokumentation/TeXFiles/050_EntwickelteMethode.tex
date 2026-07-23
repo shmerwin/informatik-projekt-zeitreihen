@@ -49,11 +49,14 @@ widersprüchlichen Werten in das Training ein.
 \end{figure}
 
 \textbf{Messlücken:} Nach der Zusammenfassung der Mehrfachmessungen liegen
-6.842 gemessene Sensorstunden vor. Innerhalb der 9.460 aktiven Sensorstunden
-fehlen damit 2.618 Werte, entsprechend 27{,}7~\%. Sie bilden 830
+zunächst 6.842 eindeutige Sensorstunden vor. Am 5.~Juli um 08:00~Uhr UTC
+melden alle 28 aktiven Sensoren gleichzeitig exakt null Passanten und null
+Verweildauer. Diese gemeinsame Nullmeldung wird als Systemausfall behandelt.
+Damit verbleiben 6.814 gemessene Sensorstunden. Innerhalb der 9.460 aktiven
+Sensorstunden fehlen 2.646 Werte, entsprechend 28{,}0~\%. Sie bilden 830
 zusammenhängende Lücken. Davon umfassen 641 höchstens zwei Stunden; die längste
 Lücke innerhalb einer aktiven Sensorperiode dauert 18 Stunden
-(Abbildung~\ref{fig:preproc_lueckenlaengen}). In 62 Stunden liegt von keinem
+(Abbildung~\ref{fig:preproc_lueckenlaengen}). In 63 Stunden liegt von keinem
 der zu diesem Zeitpunkt aktiven Sensoren eine Messung vor. Dies deutet auf
 gemeinsame Ausfälle der Übertragungsinfrastruktur hin. Die Sensoren
 Kurpark--Eingang Ludwigstraße und Friedrichstraße~1 besitzen mit 36
@@ -83,8 +86,10 @@ beobachteten Datenmerkmal abgeleitet.
     \hline
     Bis zu zehn widersprüchliche Einträge je Sensorstunde &
       Zusammenfassung zu genau einem Messpunkt je Stunde \\
-    2.618 vollständig fehlende Stunden innerhalb aktiver Sensorzeiten &
+    2.646 vollständig fehlende Stunden innerhalb aktiver Sensorzeiten &
       Stundenraster, Imputation und dauerhafte Kennzeichnung der Ersatzwerte \\
+    Gleichzeitige Nullmeldung aller 28 aktiven Sensoren &
+      Als gemeinsamen Systemausfall statt als echtes Passantenminimum behandeln \\
     641 von 830 Lücken sind höchstens zwei Stunden lang &
       vergangenheitsbasierte Fortschreibung auf zwei Stunden begrenzen \\
     Tages- und Wochenrhythmus sowie stark unterschiedliche Sensorniveaus &
@@ -101,8 +106,13 @@ beobachteten Datenmerkmal abgeleitet.
 Alle Einträge derselben Kombination aus Sensor und Stunde werden zu einem
 Messpunkt zusammengefasst. Für die Passantenzahl und die Verweildauer wird
 jeweils der arithmetische Mittelwert gebildet, da keine der mehrfachen
-Messungen als verlässlichere Quelle gekennzeichnet ist. Dadurch verbleiben 6.842
-eindeutige gemessene Sensorstunden. Nach Abschluss der Imputation wird die
+Messungen als verlässlichere Quelle gekennzeichnet ist. Dadurch entstehen 6.842
+eindeutige Sensorstunden. Die 28 Werte der gemeinsamen Nullmeldung werden
+anschließend als fehlend markiert, sodass 6.814 Stunden als gemessen gelten.
+Allgemein greift diese Regel, wenn mindestens zehn Sensoren Werte liefern und
+sämtliche vorhandenen Werte gleichzeitig null Passanten und null Verweildauer
+melden.
+Nach Abschluss der Imputation wird die
 Passantenzahl auf ganze Personen und die Verweildauer auf zwei Dezimalstellen
 gerundet.
 
@@ -134,7 +144,7 @@ Sie benötigt keinen nachfolgenden Messwert und verhindert dadurch, dass ein
 späteres Prognoseziel in einen früheren Modellkontext zurückgespiegelt wird.
 Der Preis ist eine kurzfristig konstante Fortsetzung; die Regel stellt daher
 einen transparenten Kompromiss und kein allgemein optimales
-Imputationsverfahren dar. Auf diese Weise werden 1.175 Sensorstunden ergänzt.
+Imputationsverfahren dar. Auf diese Weise werden 1.203 Sensorstunden ergänzt.
 
 \textbf{Stufe 2, Wochentag-Stunden-Profil:} Für die verbleibenden Lücken wird
 der Mittelwert desselben Sensors am gleichen lokalen Wochentag und zur gleichen
@@ -151,7 +161,7 @@ Sensorstunden.
 \textbf{Stufe 4, Sensormittel:} Fehlt auch für die betreffende Uhrzeit eine
 Referenz, wird der Mittelwert sämtlicher gemessener Trainingswerte dieses
 Sensors eingesetzt. Diese Rückfallstufe betrifft fünf Sensorstunden. Damit
-werden alle 2.618 Lücken innerhalb der aktiven Sensorperioden geschlossen;
+werden alle 2.646 Lücken innerhalb der aktiven Sensorperioden geschlossen;
 Zeiten vor der ersten und nach der letzten Messung eines Sensors bleiben
 außerhalb des Datensatzes.
 
@@ -195,10 +205,10 @@ Anteil innerhalb der aktiven Zeit jedes Sensors zusammen.
 Jede Imputation verändert die Daten. Mittelwertbasierte Verfahren können den
 Verlauf glätten und die Varianz verringern
 \cite{zhang_survey_2024,shafique_hourly_2022}. Im vorliegenden Datensatz ändert
-sich der Mittelwert der Passantenzahl je Sensor um höchstens 9{,}92~\%. Die
+sich der Mittelwert der Passantenzahl je Sensor um höchstens 10{,}29~\%. Die
 kleinste Korrelation zwischen dem ausschließlich aus gemessenen Werten und dem
 aus allen bereinigten Werten gebildeten stündlichen Tagesprofil beträgt
-0{,}9838. Diese Kennzahlen prüfen Niveau und Profil, ersetzen aber keine
+0{,}9843. Diese Kennzahlen prüfen Niveau und Profil, ersetzen aber keine
 Fehleranalyse gegen unbekannte wahre Werte in den Lücken.
 
 Die zweistündige Fortschreibung verwendet zu jedem Zeitpunkt nur die
@@ -212,7 +222,9 @@ Die erste und letzte vorhandene Messung dienen mangels eines Betriebsplans nur
 als vorläufige Grenzen der Sensoraktivität. War ein Sensor planmäßig schon
 früher oder noch länger aktiv, wären die dort fehlenden Stunden als Ausfälle
 zu behandeln. Die vorgesehenen Aktivitätszeiträume müssen deshalb noch mit den
-Betreiberdaten abgeglichen werden.
+Betreiberdaten abgeglichen werden. Die Datei
+\texttt{data/sensor\_activity\_periods.csv} hält dafür beobachtete Grenzen und
+noch offene Felder für die geplanten Betriebszeiten fest.
 
 Ein zweiter Aspekt betrifft die Anomalieerkennung selbst. Ergänzte Stunden
 wirken per Konstruktion unauffällig, ein tatsächlicher Sensorausfall stellt
@@ -317,7 +329,7 @@ zeigt diese Festlegung.
     Baustein & Größe & Parameter & Begründung für diesen Datensatz \\
     \hline
     LSTM & 64 & 18.688 & Verdichtet ein Fenster aus 24 Stunden und acht
-      Kanälen. Wegen nur 4.111 gemessener Trainingsziele bleibt es bei einer
+      Kanälen. Wegen nur 4.083 gemessener Trainingsziele bleibt es bei einer
       rekurrenten Schicht. \\
     Sensor-Embedding & 6 & 168 & Bildet 28 Sensoren mit $28\cdot6$ Werten als
       kleine Zusatzinformation ab. \\
