@@ -1,7 +1,6 @@
-"""Wählt den Detektor und prüft ihn mit synthetischen Anomalien.
+"""Gemeinsamer synthetischer Vergleich für alle Anomaliemodelle.
 
-Normaler Aufruf des separaten Benchmarks aus dem Projektordner:
-``python -m src.forecaster.benchmark``
+Aufruf aus dem Projektordner: ``python -m src.benchmark``
 """
 
 import argparse
@@ -16,7 +15,7 @@ from sklearn.metrics import (
     recall_score, roc_auc_score,
 )
 
-from .common import (
+from .forecaster.common import (
     CALIBRATION_END, DATA_PATH, FEATURES, MODEL_DIR, TUNE_END, anomaly_scores,
     inverse_values, load_data, make_windows, predict_quantiles, scale_values,
 )
@@ -229,26 +228,35 @@ def _event_metrics(frame):
     }
 
 
-def _period_scores(data, model, bundle, start, end=None):
+def _forecast_scores(data, model, bundle):
+    """Berechnet den vorhandenen Forecast-Score für ein Datenstück."""
+    quantiles = predict_quantiles(model, data)
+    result = np.full(len(data["time"]), np.nan)
+    observed = data["observed"]
+    _, result[observed], _ = anomaly_scores(
+        data["y_scaled"][observed], quantiles[observed], bundle["calibrator"]
+    )
+    return result
+
+
+def _period_scores(data, model, bundle, start, end=None, score_function=None):
     time = pd.to_datetime(data["time"], utc=True)
     mask = time >= start
     if end is not None:
         mask &= time < end
     period = {name: values[np.asarray(mask)] for name, values in data.items()}
-    quantiles = predict_quantiles(model, period)
-    joint_score = np.full(len(period["time"]), np.nan)
-    observed = period["observed"]
-    _, joint_score[observed], _ = anomaly_scores(
-        period["y_scaled"][observed], quantiles[observed], bundle["calibrator"]
-    )
-    return period, joint_score
+    score_function = score_function or _forecast_scores
+    return period, score_function(period, model, bundle)
 
 
 def _prepare_injection_runs(
     df, base_data, model, bundle, start, end, seeds, include_mild,
+    score_function=None,
 ):
     """Berechnet die Scores einmal je Injektionslauf."""
-    base, base_joint = _period_scores(base_data, model, bundle, start, end)
+    base, base_joint = _period_scores(
+        base_data, model, bundle, start, end, score_function
+    )
     base_keys = [
         (sensor, np.datetime64(time, "us"))
         for sensor, time in zip(base["sensor"], base["time"])
@@ -273,7 +281,7 @@ def _prepare_injection_runs(
                     continue
                 injected_data = make_windows(injected_df, bundle["scaler"])
                 injected, joint = _period_scores(
-                    injected_data, model, bundle, start, end
+                    injected_data, model, bundle, start, end, score_function
                 )
                 injected_keys = [
                     (sensor, np.datetime64(time, "us"))
@@ -343,11 +351,12 @@ def _detector_candidates(base):
                 }
 
 
-def select_detector(df, base_data, model, bundle):
+def select_detector(df, base_data, model, bundle, score_function=None):
     """Wählt die Alarmregel nur mit Kalibrierungsinjektionen."""
     base, runs = _prepare_injection_runs(
         df, base_data, model, bundle, TUNE_END, CALIBRATION_END,
         CALIBRATION_SEEDS, include_mild=False,
+        score_function=score_function,
     )
     data = base["data"]
     observed = data["observed"]
@@ -472,11 +481,11 @@ def _reference_detector(bundle):
     }
 
 
-def injection_benchmark(df, base_data, model, bundle):
+def injection_benchmark(df, base_data, model, bundle, score_function=None):
     """Prüft die eingefrorene Alarmregel mit unabhängigen Testinjektionen."""
     base, runs = _prepare_injection_runs(
         df, base_data, model, bundle, CALIBRATION_END, None,
-        TEST_SEEDS, include_mild=True,
+        TEST_SEEDS, include_mild=True, score_function=score_function,
     )
     return (
         _aggregate_injection_runs(runs, base, bundle["detector"]),
@@ -511,8 +520,19 @@ def _benchmark_rows(results, reference):
     return rows
 
 
-def run_benchmark(data_path=DATA_PATH, model_dir=MODEL_DIR):
-    """Führt nur den synthetischen Benchmark aus und speichert dessen Resultate."""
+def _model_setup(name):
+    if name == "forecaster":
+        return MODEL_DIR, _forecast_scores
+    if name == "autoencoder":
+        from .autoencoder.train import MODEL_DIR as directory
+        from .autoencoder.train import reconstruction_scores
+        return directory, reconstruction_scores
+    raise ValueError(f"Unbekanntes Modell: {name}")
+
+
+def _run_one(name, data_path):
+    """Wendet exakt denselben Test auf ein gespeichertes Modell an."""
+    model_dir, score_function = _model_setup(name)
     model_dir = Path(model_dir)
     with open(model_dir / "model_bundle.json", encoding="utf-8") as file:
         bundle = json.load(file)
@@ -521,11 +541,24 @@ def run_benchmark(data_path=DATA_PATH, model_dir=MODEL_DIR):
     model = tf.keras.models.load_model(
         model_dir / bundle["model"], compile=False
     )
-    results, reference = injection_benchmark(df, data, model, bundle)
+    if "detector" not in bundle:
+        detector, selection = select_detector(
+            df, data, model, bundle, score_function
+        )
+        bundle["detector"] = detector
+        bundle["detector_selection"] = selection
+        with open(
+            model_dir / "model_bundle.json", "w", encoding="utf-8"
+        ) as file:
+            json.dump(bundle, file, ensure_ascii=False, indent=2, allow_nan=False)
+    results, reference = injection_benchmark(
+        df, data, model, bundle, score_function
+    )
     report = {
         "design": (
             "Injektion nur in ursprünglich gemessene Testwerte vor Windowing "
-            "und Prediction; drei von der Kalibrierung getrennte Seeds; bewertet "
+            "und Prediction; drei von der Kalibrierung getrennte "
+            "Zufallsstartwerte; bewertet "
             "werden nur zusätzliche Alarme gegenüber dem unveränderten Lauf."
         ),
         "test_seeds": TEST_SEEDS,
@@ -543,16 +576,37 @@ def run_benchmark(data_path=DATA_PATH, model_dir=MODEL_DIR):
     pd.DataFrame(_benchmark_rows(results, reference)).to_csv(
         model_dir / "injection_benchmark.csv", index=False
     )
-    print(f"Benchmark gespeichert: {model_dir / 'injection_benchmark.csv'}")
-    return report
+    print(f"Vergleichstest gespeichert: {model_dir / 'injection_benchmark.csv'}")
+    return report, [dict(model=name, **row) for row in _benchmark_rows(
+        results, reference
+    )]
+
+
+def run_benchmark(model_names=("forecaster", "autoencoder"), data_path=DATA_PATH):
+    """Vergleicht alle Modelle mit denselben Injektionen und Metriken."""
+    reports, rows = {}, []
+    for name in model_names:
+        reports[name], model_rows = _run_one(name, data_path)
+        rows.extend(model_rows)
+
+    output = Path(__file__).resolve().parents[1] / "saved_models" / "benchmark"
+    output.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(output / "model_comparison.csv", index=False)
+    with open(output / "model_comparison.json", "w", encoding="utf-8") as file:
+        json.dump(reports, file, ensure_ascii=False, indent=2, allow_nan=False)
+    print(f"Modellvergleich gespeichert: {output / 'model_comparison.csv'}")
+    return reports
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=DATA_PATH)
-    parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
+    parser.add_argument(
+        "--models", nargs="+", choices=["forecaster", "autoencoder"],
+        default=["forecaster", "autoencoder"],
+    )
     args = parser.parse_args()
-    run_benchmark(args.data, args.model_dir)
+    run_benchmark(args.models, args.data)
 
 
 if __name__ == "__main__":

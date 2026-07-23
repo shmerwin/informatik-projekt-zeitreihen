@@ -1,0 +1,1 @@
+"""Kompakter Rekonstruktionsdetektor."""

@@ -1,6 +1,6 @@
 """Evaluiert Forecasts und schreibt nachvollziehbare Anomalie-Kandidaten.
 
-Der aufwendige synthetische Test liegt separat in ``src.forecaster.benchmark``.
+Der synthetische Vergleich aller Modelle liegt separat in ``src.benchmark``.
 Optional können bestätigte Labels als CSV mit ``sensor,time,label`` übergeben
 werden. Ohne solche Labels sind die Treffer Kandidaten, keine Ground Truth.
 """
@@ -25,7 +25,7 @@ from .common import (
     DATA_PATH, FEATURES, MODEL_DIR, anomaly_scores, conformal_bounds,
     inverse_values, load_data, make_windows, predict_quantiles, split_masks,
 )
-from .detector import detector_output, event_ids
+from ..detector import detector_output, event_ids
 
 
 def _forecast_metrics(actual, forecast, baseline, lower, upper, mase_scale):
@@ -150,6 +150,8 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
     model_dir = Path(model_dir)
     with open(model_dir / "model_bundle.json", encoding="utf-8") as file:
         bundle = json.load(file)
+    if "detector" not in bundle:
+        raise ValueError("Zuerst den gemeinsamen Lauf starten: python -m src.benchmark")
     df = load_data(data_path)
     data = make_windows(df, bundle["scaler"])
     masks = split_masks(data)
@@ -274,7 +276,7 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
     )
     print(f"Fehlende Messungen: {int(missing_alarm.sum())}")
     print(f"Gemeinsame Intervallabdeckung: {joint_coverage:.1%}")
-    print("Synthetischer Test separat: python -m src.forecaster.benchmark")
+    print("Gemeinsamer Modellvergleich: python -m src.benchmark")
     print(f"Ereignisdetails: {model_dir / 'anomaly_events.csv'}")
     return metrics
 

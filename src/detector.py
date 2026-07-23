@@ -1,4 +1,4 @@
-"""Gemeinsame Logik für Forecast-Alarme und zeitliche Ereignisse."""
+"""Gemeinsame Logik für Alarme und zeitliche Ereignisse."""
 
 import numpy as np
 import pandas as pd

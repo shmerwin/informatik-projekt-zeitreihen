@@ -9,8 +9,9 @@ import numpy as np
 import pandas as pd
 
 from src.forecaster.common import anomaly_scores, fit_calibrator
-from src.forecaster.benchmark import _inject
-from src.forecaster.detector import detector_output
+from src.benchmark import _inject
+from src.detector import detector_output
+from src.autoencoder.train import add_masking_noise, sequences
 from src.forecaster.evaluate import _evaluate_labels
 from src.preprocessing import process_and_impute_full_data
 
@@ -104,6 +105,25 @@ class DetectorTests(unittest.TestCase):
         )
         self.assertTrue(np.isnan(counts[4]))
         self.assertTrue(np.isnan(counts[7]))
+
+
+class AutoencoderTests(unittest.TestCase):
+    def test_sequence_ends_with_current_target(self):
+        data = {
+            "history": np.zeros((2, 24, 8), dtype="float32"),
+            "y_scaled": np.array([[1, 2], [3, 4]], dtype="float32"),
+            "observed": np.array([True, False]),
+        }
+        result = sequences(data)
+        self.assertEqual(result.shape, (2, 24, 3))
+        np.testing.assert_array_equal(result[:, -1, :2], data["y_scaled"])
+        np.testing.assert_array_equal(result[:, -1, 2], [1, 0])
+
+    def test_masking_keeps_original_and_hides_measured_values(self):
+        original = np.ones((3, 24, 3), dtype="float32")
+        noisy = add_masking_noise(original)
+        np.testing.assert_array_equal(original, np.ones_like(original))
+        self.assertTrue((noisy[:, :, 2] == 0).any(axis=1).all())
 
 
 class LabelTests(unittest.TestCase):

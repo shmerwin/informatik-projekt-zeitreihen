@@ -1,11 +1,11 @@
 {
-  "design": "Injektion nur in urspruenglich gemessene Testwerte vor Windowing und Prediction; drei von der Kalibrierung getrennte Seeds; bewertet werden nur zusaetzliche Alarme gegenueber dem unveraenderten Lauf.",
+  "design": "Injektion nur in ursprünglich gemessene Testwerte vor Windowing und Prediction; drei von der Kalibrierung getrennte Zufallsstartwerte; bewertet werden nur zusätzliche Alarme gegenüber dem unveränderten Lauf.",
   "test_seeds": [
     445,
     546,
     647
   ],
-  "warning": "Die Ground Truth ist synthetisch. Der Recall gilt nur fuer die injizierten Typen und Staerken, nicht fuer unbekannte reale Anomalien.",
+  "warning": "Die Ground Truth ist synthetisch. Der Recall gilt nur für die injizierten Typen und Stärken, nicht für unbekannte reale Anomalien.",
   "results": {
     "spike": {
       "one_event_per_sensor": true,
@@ -279,8 +279,8 @@
             "recall": 0.23677248677248677,
             "f1": 0.3452297550658206,
             "temporal_iou": 0.22283907687634394,
-            "roc_auc": 0.6736284576376858,
-            "pr_auc": 0.23143625669895587
+            "roc_auc": 0.6736345439167781,
+            "pr_auc": 0.23143648693936078
           },
           "event": {
             "precision": 0.9333333333333332,
@@ -566,8 +566,8 @@
             "recall": 0.21031746031746032,
             "f1": 0.31412429378531076,
             "temporal_iou": 0.20736434108527133,
-            "roc_auc": 0.6736284576376858,
-            "pr_auc": 0.23143625669895587
+            "roc_auc": 0.6736345439167781,
+            "pr_auc": 0.23143648693936078
           },
           "event": {
             "precision": 0.6,

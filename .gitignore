@@ -9,6 +9,9 @@ __pycache__/
 # generierte Plots
 plots/
 
+# lokale Zwischenstände und Sichtprüfungen
+tmp/
+
 # LaTeX: Build-Output von TeXiFy
 out/
 auxil/
@@ -49,3 +52,5 @@ Thumbs.db
 # Trainierte Modelle
 *.h5
 *.keras
+!saved_models/forecaster/forecaster.keras
+!saved_models/autoencoder/autoencoder.keras

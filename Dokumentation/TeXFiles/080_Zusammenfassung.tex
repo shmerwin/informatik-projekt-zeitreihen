@@ -1,3 +1,18 @@
 \chapter{Zusammenfassung und Ausblick}
 \label{ch:Zusammenfassung}
 
+Die aufbereiteten Sensordaten wurden mit zwei getrennten Verfahren untersucht:
+Ein Forecaster bewertet Abweichungen von seiner Prognose, ein kompakter
+Autoencoder bewertet Rekonstruktionsfehler. Beide Modelle verwenden dieselben
+Zeitabschnitte, ursprünglich gemessenen Zielwerte und künstlichen
+Testanomalien. Dadurch ist der Vergleich nachvollziehbar, ohne die beiden
+Anomaliewerte miteinander zu vermischen.
+
+Der Forecaster erkennt die geprüften Anomaliearten insgesamt besser. Der
+Autoencoder ist deutlich kleiner und reagiert besonders auf mehrstündige
+Verschiebungen und Drifts, erreicht aber nicht die gleiche Zuverlässigkeit.
+Mehr Schichten sind mit den kurzen Datenreihen daher derzeit nicht begründet.
+Als nächste Schritte sind vor allem die manuelle Prüfung realer Kandidaten,
+längere Messreihen und zeitlich wiederholte Tests sinnvoll. Erst mit deutlich
+mehr Daten sollte zusätzlich ein Transformer untersucht werden.
+

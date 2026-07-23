@@ -1,4 +1,4 @@
-"""Gemeinsame, kleine Hilfsfunktionen für Training und Evaluation."""
+"""Datenlogik für beide Modelle und Hilfsfunktionen des Forecasters."""
 
 import json
 import os
@@ -185,7 +185,9 @@ def build_model(n_sensors, history_channels, params):
 
 
 def predict_quantiles(model, data, mask=None):
-    return np.sort(model.predict(model_inputs(data, mask), verbose=0), axis=-1)
+    return np.sort(model.predict(
+        model_inputs(data, mask), batch_size=512, verbose=0
+    ), axis=-1)
 
 
 def fit_calibrator(actual, prediction, alpha=ALPHA):

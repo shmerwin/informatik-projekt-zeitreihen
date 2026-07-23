@@ -1,0 +1,598 @@
+{
+  "model": "autoencoder.keras",
+  "features": [
+    "visitors",
+    "avgDuration"
+  ],
+  "window_size": 24,
+  "architecture": {
+    "lstm_units": 16
+  },
+  "training": {
+    "max_epochs": 100,
+    "epochs_run": 100,
+    "batch_size": 128,
+    "max_mask_hours": 4
+  },
+  "scaler": {
+    "sensors": [
+      "Alicestraße 2",
+      "Friedrichstraße 11",
+      "Hauptstraße 36",
+      "Hauptstraße 52 Marktplatz",
+      "Hauptstraße 8",
+      "Innenstadt",
+      "Karlstraße 15",
+      "Karlstraße 6",
+      "Kurpark",
+      "Kurpark - Eingang Kolonnaden",
+      "Kurpark - Eingang Kurhaus",
+      "Kurpark - Eingang Parkstraße",
+      "Kurpark - Eingang Sprudelhof",
+      "Kurpark - Großer Teich - Toilette",
+      "Kurpark - Großer Teich Nord Ost",
+      "Kurpark - Großer Teich Süd Ost",
+      "Kurpark - Zentrum Süd",
+      "Kurstraße 13",
+      "Kurstraße 7",
+      "Parkstraße 24",
+      "Parkstraße 4",
+      "Reinhardstraße 19",
+      "Reinhardstraße 2",
+      "Rosengarten",
+      "Schulstraße 6",
+      "Stresemannstraße 38",
+      "Stresemannstraße 6",
+      "Trafohaus Zanderstraße"
+    ],
+    "median": [
+      [
+        3.1780538303479458,
+        2.414126467726953
+      ],
+      [
+        3.1780538303479458,
+        2.1604451597323546
+      ],
+      [
+        3.198464827608073,
+        2.167909535110517
+      ],
+      [
+        2.995732273553991,
+        2.3532782073095637
+      ],
+      [
+        3.258096538021482,
+        2.162172939277301
+      ],
+      [
+        5.435881669738118,
+        2.9699013818920452
+      ],
+      [
+        4.007333185232471,
+        2.3636797498636457
+      ],
+      [
+        3.4011973816621555,
+        2.209372711271867
+      ],
+      [
+        4.442651256490317,
+        2.753023566744941
+      ],
+      [
+        3.7012257604091223,
+        2.234306252240751
+      ],
+      [
+        3.091042453358316,
+        2.0001130859772065
+      ],
+      [
+        1.9459101490553132,
+        1.6956156086751528
+      ],
+      [
+        3.569433499972762,
+        2.4882330602030507
+      ],
+      [
+        2.3978952727983707,
+        2.3504224224082058
+      ],
+      [
+        2.1972245773362196,
+        2.136530508663963
+      ],
+      [
+        2.833213344056216,
+        2.193324218834476
+      ],
+      [
+        3.0677824455408693,
+        2.1938800832608214
+      ],
+      [
+        3.6888794541139363,
+        2.018895041811802
+      ],
+      [
+        4.255587559545337,
+        2.369304787190177
+      ],
+      [
+        2.70805020110221,
+        2.2874714551839976
+      ],
+      [
+        2.0794415416798357,
+        2.0862928239745044
+      ],
+      [
+        3.3140206880897667,
+        2.192210632628064
+      ],
+      [
+        3.9512437185814275,
+        2.4595888418037104
+      ],
+      [
+        2.772588722239781,
+        2.3045830956567186
+      ],
+      [
+        2.302585092994046,
+        2.16504551439265
+      ],
+      [
+        2.4849066497880004,
+        1.971290654001387
+      ],
+      [
+        3.367295829986474,
+        2.225704048658088
+      ],
+      [
+        3.5263605246161616,
+        2.2438960966453663
+      ]
+    ],
+    "scale": [
+      [
+        2.653241964607215,
+        0.6566826001257082
+      ],
+      [
+        1.55814461804655,
+        0.5620457473288416
+      ],
+      [
+        1.457515681211146,
+        0.47380563264040365
+      ],
+      [
+        1.4170660197866445,
+        0.6540935843610678
+      ],
+      [
+        1.5040263789710155,
+        0.5186653663235037
+      ],
+      [
+        2.110829150260669,
+        0.23200465395673886
+      ],
+      [
+        1.7974227996451524,
+        0.41599255320409734
+      ],
+      [
+        2.148434413166787,
+        0.653481924167514
+      ],
+      [
+        2.0989861377528065,
+        0.4026647702378452
+      ],
+      [
+        1.6477200586327183,
+        0.6621414066720812
+      ],
+      [
+        1.791759469228055,
+        0.7313735031311934
+      ],
+      [
+        1.1786549963416462,
+        1.1363067208802438
+      ],
+      [
+        1.7955189385691899,
+        0.8979725405585879
+      ],
+      [
+        1.252762968495368,
+        0.6057820091211981
+      ],
+      [
+        1.0986122886681098,
+        0.6192157854949121
+      ],
+      [
+        1.129228784558301,
+        0.5414013170924259
+      ],
+      [
+        1.550597412411167,
+        0.6385255983247751
+      ],
+      [
+        1.8405496333974867,
+        0.44432714120021144
+      ],
+      [
+        2.093155895046176,
+        0.42149819104137354
+      ],
+      [
+        2.024381764496809,
+        0.5428649775106074
+      ],
+      [
+        2.1466506606971008,
+        0.7956522858905632
+      ],
+      [
+        1.6940469494725328,
+        0.49415840026387237
+      ],
+      [
+        2.2022497452629697,
+        0.46534188450264136
+      ],
+      [
+        1.503951404587123,
+        0.5617377972271331
+      ],
+      [
+        1.3862943611198906,
+        0.7919670964388463
+      ],
+      [
+        1.3862943611198906,
+        0.7793180025238451
+      ],
+      [
+        2.164963715117998,
+        0.6287480455220704
+      ],
+      [
+        2.022777199026334,
+        0.585062156160661
+      ]
+    ]
+  },
+  "error_scale": [
+    0.209214448928833,
+    0.46956971287727356
+  ],
+  "calibrator": {
+    "alpha": 0.01,
+    "threshold": 4.870949745178223
+  },
+  "splits": {
+    "train_end": "2025-07-08 00:00:00+00:00",
+    "tune_end": "2025-07-09 00:00:00+00:00",
+    "calibration_end": "2025-07-10 00:00:00+00:00"
+  },
+  "parameters": 3426,
+  "sample_counts": {
+    "train": 4111,
+    "tune": 318,
+    "calibration": 368,
+    "test": 1346,
+    "test_all": 2679
+  },
+  "detector": {
+    "high_alpha": 0.01,
+    "point_threshold": 4.870949842109222,
+    "low_alpha": 0.05,
+    "low_threshold": 2.6582453855174135,
+    "persistence_window": 3,
+    "required_exceedances": 2,
+    "selection_period": [
+      "2025-07-09 00:00:00+00:00",
+      "2025-07-10 00:00:00+00:00"
+    ],
+    "max_calibration_alarm_rate": 0.01
+  },
+  "detector_selection": {
+    "seeds": [
+      142,
+      243,
+      344
+    ],
+    "selection_strengths": [
+      1.0,
+      2.0
+    ],
+    "objective": "macro incremental event F1, equal weight per anomaly type",
+    "selected": {
+      "detector": {
+        "high_alpha": 0.01,
+        "point_threshold": 4.870949842109222,
+        "low_alpha": 0.05,
+        "low_threshold": 2.6582453855174135,
+        "persistence_window": 3,
+        "required_exceedances": 2
+      },
+      "calibration_alarm_count": 2,
+      "calibration_alarm_rate": 0.005434782608695652,
+      "macro_event_f1": 0.4285134620518609,
+      "macro_incremental_event_recall": 0.3372222222222222,
+      "event_f1_by_type": {
+        "spike": 0.38035748958940113,
+        "dip": 0.31007082351168375,
+        "level_shift": 0.7261469336661563,
+        "drift": 0.49742063492063493,
+        "stuck_at": 0.22857142857142856
+      }
+    },
+    "feasible_candidates": [
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 5.9593724964644235,
+          "low_alpha": null,
+          "low_threshold": null,
+          "persistence_window": null,
+          "required_exceedances": null
+        },
+        "calibration_alarm_count": 0,
+        "calibration_alarm_rate": 0.0,
+        "macro_event_f1": 0.2476098075086047,
+        "macro_incremental_event_recall": 0.1738888888888889,
+        "event_f1_by_type": {
+          "spike": 0.372247823860727,
+          "dip": 0.2727604451742383,
+          "level_shift": 0.2971616476289374,
+          "drift": 0.16254578754578755,
+          "stuck_at": 0.13333333333333333
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 5.9593724964644235,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 3,
+          "required_exceedances": 2
+        },
+        "calibration_alarm_count": 0,
+        "calibration_alarm_rate": 0.0,
+        "macro_event_f1": 0.40659624919683823,
+        "macro_incremental_event_recall": 0.32,
+        "event_f1_by_type": {
+          "spike": 0.35414484708839544,
+          "dip": 0.25566533621234927,
+          "level_shift": 0.6981815054570473,
+          "drift": 0.4964181286549707,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 5.9593724964644235,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 4,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 0,
+        "calibration_alarm_rate": 0.0,
+        "macro_event_f1": 0.35789378627947543,
+        "macro_incremental_event_recall": 0.26833333333333337,
+        "event_f1_by_type": {
+          "spike": 0.36855158730158727,
+          "dip": 0.2633825944170772,
+          "level_shift": 0.6241883116883117,
+          "drift": 0.3047750094189723,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 5.9593724964644235,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 6,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 0,
+        "calibration_alarm_rate": 0.0,
+        "macro_event_f1": 0.2948272018072721,
+        "macro_incremental_event_recall": 0.2238888888888889,
+        "event_f1_by_type": {
+          "spike": 0.36424585718940555,
+          "dip": 0.2603174603174603,
+          "level_shift": 0.4171656936426206,
+          "drift": 0.20383556931544547,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 5.9593724964644235,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 6,
+          "required_exceedances": 4
+        },
+        "calibration_alarm_count": 0,
+        "calibration_alarm_rate": 0.0,
+        "macro_event_f1": 0.27336534458244854,
+        "macro_incremental_event_recall": 0.1961111111111111,
+        "event_f1_by_type": {
+          "spike": 0.372247823860727,
+          "dip": 0.2727604451742383,
+          "level_shift": 0.35431623931623935,
+          "drift": 0.1389307859896095,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 5.9593724964644235,
+          "low_alpha": 0.1,
+          "low_threshold": 2.2600288145192815,
+          "persistence_window": 4,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 3,
+        "calibration_alarm_rate": 0.008152173913043478,
+        "macro_event_f1": 0.42711542653253887,
+        "macro_incremental_event_recall": 0.3244444444444444,
+        "event_f1_by_type": {
+          "spike": 0.38536031523408804,
+          "dip": 0.2737274220032841,
+          "level_shift": 0.6850391789751057,
+          "drift": 0.4295454545454545,
+          "stuck_at": 0.36190476190476195
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 5.9593724964644235,
+          "low_alpha": 0.1,
+          "low_threshold": 2.2600288145192815,
+          "persistence_window": 6,
+          "required_exceedances": 4
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.2835001566473697,
+        "macro_incremental_event_recall": 0.2127777777777778,
+        "event_f1_by_type": {
+          "spike": 0.37152632313922634,
+          "dip": 0.2637657361795293,
+          "level_shift": 0.4102017834901,
+          "drift": 0.1434355118565645,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.01,
+          "point_threshold": 4.870949842109222,
+          "low_alpha": null,
+          "low_threshold": null,
+          "persistence_window": null,
+          "required_exceedances": null
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.33120693853203476,
+        "macro_incremental_event_recall": 0.23833333333333334,
+        "event_f1_by_type": {
+          "spike": 0.39658595067080343,
+          "dip": 0.3289539529806493,
+          "level_shift": 0.421380374011953,
+          "drift": 0.2805429864253394,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.01,
+          "point_threshold": 4.870949842109222,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 3,
+          "required_exceedances": 2
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.4285134620518609,
+        "macro_incremental_event_recall": 0.3372222222222222,
+        "event_f1_by_type": {
+          "spike": 0.38035748958940113,
+          "dip": 0.31007082351168375,
+          "level_shift": 0.7261469336661563,
+          "drift": 0.49742063492063493,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.01,
+          "point_threshold": 4.870949842109222,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 4,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.3860713094251288,
+        "macro_incremental_event_recall": 0.2938888888888889,
+        "event_f1_by_type": {
+          "spike": 0.3934293850142378,
+          "dip": 0.3176429146537842,
+          "level_shift": 0.6516707693178282,
+          "drift": 0.3390420495683653,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.01,
+          "point_threshold": 4.870949842109222,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 6,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.3432343767697412,
+        "macro_incremental_event_recall": 0.26611111111111113,
+        "event_f1_by_type": {
+          "spike": 0.3900691699604743,
+          "dip": 0.314170692431562,
+          "level_shift": 0.4961007766780566,
+          "drift": 0.2872598162071846,
+          "stuck_at": 0.22857142857142856
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.01,
+          "point_threshold": 4.870949842109222,
+          "low_alpha": 0.05,
+          "low_threshold": 2.6582453855174135,
+          "persistence_window": 6,
+          "required_exceedances": 4
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.3310540531131857,
+        "macro_incremental_event_recall": 0.24666666666666667,
+        "event_f1_by_type": {
+          "spike": 0.39658595067080343,
+          "dip": 0.3289539529806493,
+          "level_shift": 0.4514438336279473,
+          "drift": 0.24971509971509973,
+          "stuck_at": 0.22857142857142856
+        }
+      }
+    ]
+  }
+}

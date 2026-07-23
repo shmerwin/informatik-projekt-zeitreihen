@@ -24,8 +24,13 @@ Sensorlaufzeit und werden nicht als Messlücke behandelt.
 \section{Datenqualität}
 \label{sec:Methode_Datenqualitaet}
 
-Bei der Sichtung der Rohdaten sind zwei Probleme aufgefallen, die vor dem
-Training behandelt werden müssen.
+Die explorative Analyse mit \texttt{analyse/analyse.py} untersucht zunächst
+Aufbau, Mehrfachmessungen, Verteilungen und Beziehungen der Messgrößen. Die
+anschließende Bildung eines vollständigen Stundenrasters in
+\texttt{analyse/preprocessing\_plots.py} macht zusätzlich fehlende Stunden
+sichtbar. In vorhandenen Rohzeilen fehlen weder \texttt{visitors} noch
+\texttt{avgDuration}; eine ausgefallene Stunde fehlt jedoch als ganze Zeile
+und wäre mit einer reinen Suche nach leeren Einzelwerten nicht erkennbar.
 
 \textbf{Mehrfachmessungen:} Für 4.770 Kombinationen aus Sensor und Stunde
 enthält der Datensatz mehrere Einträge, in der Spitze zehn Messungen für
@@ -63,12 +68,40 @@ nach ihrem letzten Messwert werden nicht künstlich ergänzt.
   \label{fig:preproc_lueckenlaengen}
 \end{figure}
 
+Tabelle~\ref{tab:analyse_preprocessing} fasst die wichtigsten Folgerungen der
+Analyse zusammen. Damit wird jede Aufbereitungsentscheidung aus einem
+beobachteten Datenmerkmal abgeleitet.
+
+\begin{table}[htb]
+  \centering
+  \small
+  \caption{Aus der Datenanalyse abgeleitete Aufbereitung. Eigene Darstellung.}
+  \label{tab:analyse_preprocessing}
+  \begin{tabularx}{\textwidth}{p{0.42\textwidth}X}
+    \hline
+    Analysebefund & Folgerung für die Aufbereitung \\
+    \hline
+    Bis zu zehn widersprüchliche Einträge je Sensorstunde &
+      Zusammenfassung zu genau einem Messpunkt je Stunde \\
+    2.618 vollständig fehlende Stunden innerhalb aktiver Sensorzeiten &
+      Stundenraster, Imputation und dauerhafte Kennzeichnung der Ersatzwerte \\
+    641 von 830 Lücken sind höchstens zwei Stunden lang &
+      vergangenheitsbasierte Fortschreibung auf zwei Stunden begrenzen \\
+    Tages- und Wochenrhythmus sowie stark unterschiedliche Sensorniveaus &
+      Kalendermerkmale, Zeitprofile und sensorweise Skalierung verwenden \\
+    Mittlere sensorweise Korrelation von nur 0{,}13 zwischen den Zielgrößen &
+      \texttt{visitors} und \texttt{avgDuration} getrennt beibehalten \\
+    \hline
+  \end{tabularx}
+\end{table}
+
 \section{Bereinigung der Mehrfachmessungen}
 \label{sec:Methode_Dedup}
 
 Alle Einträge derselben Kombination aus Sensor und Stunde werden zu einem
 Messpunkt zusammengefasst. Für die Passantenzahl und die Verweildauer wird
-jeweils der arithmetische Mittelwert gebildet. Dadurch verbleiben 6.842
+jeweils der arithmetische Mittelwert gebildet, da keine der mehrfachen
+Messungen als verlässlichere Quelle gekennzeichnet ist. Dadurch verbleiben 6.842
 eindeutige gemessene Sensorstunden. Nach Abschluss der Imputation wird die
 Passantenzahl auf ganze Personen und die Verweildauer auf zwei Dezimalstellen
 gerundet.
@@ -88,9 +121,11 @@ Testwerte gehen damit nicht in die Profilbildung ein. Wochentag und Stunde
 werden in der lokalen Zeitzone \texttt{Europe/Berlin} bestimmt. Das Verfahren
 arbeitet in vier aufeinanderfolgenden Stufen.
 
-\textbf{Stufe 1, vergangenheitsbasierte Fortschreibung:} Für die ersten zwei
-Stunden jeder Lücke wird der letzte zuvor gemessene Wert desselben Sensors
-übernommen. Mit $t^{-}$ als Zeitpunkt der letzten Messung gilt
+\textbf{Stufe 1, vergangenheitsbasierte Fortschreibung:} Da 641 der 830
+Lücken und damit 77{,}2~\% höchstens zwei Stunden dauern, wird die
+Fortschreibung auf genau diesen Zeitraum begrenzt. Für die ersten zwei Stunden
+jeder Lücke wird der letzte zuvor gemessene Wert desselben Sensors übernommen.
+Mit $t^{-}$ als Zeitpunkt der letzten Messung gilt
 \begin{equation}
   \hat{x}_t=x_{t^{-}}, \qquad 0<t-t^{-}\leq 2\ \text{Stunden}.
 \end{equation}
@@ -173,6 +208,12 @@ Die Aufbereitung ist damit für die Out-of-Sample-Auswertung frei von
 Validierungs- und Testdaten-Leakage, jedoch nicht als rein online-kausale
 Imputation jeder frühen Trainingslücke zu verstehen.
 
+Die erste und letzte vorhandene Messung dienen mangels eines Betriebsplans nur
+als vorläufige Grenzen der Sensoraktivität. War ein Sensor planmäßig schon
+früher oder noch länger aktiv, wären die dort fehlenden Stunden als Ausfälle
+zu behandeln. Die vorgesehenen Aktivitätszeiträume müssen deshalb noch mit den
+Betreiberdaten abgeglichen werden.
+
 Ein zweiter Aspekt betrifft die Anomalieerkennung selbst. Ergänzte Stunden
 wirken per Konstruktion unauffällig, ein tatsächlicher Sensorausfall stellt
 jedoch selbst ein meldenswertes Ereignis dar. Das Fehlen von Werten folgt
@@ -203,13 +244,53 @@ eine robuste Skalierung je Sensor $s$ und Merkmal $f$:
   {\max(\operatorname{IQR}_{s,f},0{,}05)}.
 \end{equation}
 Median und Interquartilsabstand werden ausschließlich aus gemessenen
-Trainingswerten bestimmt. Jedes historische Zeitfenster besitzt acht Kanäle:
+Trainingswerten bestimmt. Die sensorweisen Mittelwerte der Passantenzahl
+reichen in der Analyse von etwa 9{,}1 bis 262{,}5 Personen pro Stunde; die
+sensorweise Skalierung verhindert, dass diese Niveauunterschiede die
+Modellierung dominieren. Jedes historische Zeitfenster besitzt acht Kanäle:
 die beiden skalierten Messgrößen, eine Maske für gemessen beziehungsweise
 imputiert sowie Sinus und Kosinus von lokaler Stunde und Wochentag und einen
 Wochenendindikator. Die fünf Kalendermerkmale der Zielstunde und eine
 Sensor-ID werden dem Modell zusätzlich übergeben.
 
-\subsection{Modellarchitektur und Training}
+\subsection{Vom Ursprungs-Forecaster zur aktuellen Architektur}
+\label{sec:Methode_Forecasterentwicklung}
+
+Der erste Forecaster des Projekts bestand aus
+\begin{equation}
+ \operatorname{Input}(24,2)
+ \rightarrow \operatorname{LSTM}(64)
+ \rightarrow \operatorname{Dense}(2).
+\end{equation}
+Er besaß 17.282 trainierbare Parameter und erzeugte mit MSE trainierte
+Punktprognosen für beide Messgrößen. Dieser verständliche Ausgangspunkt
+berücksichtigte jedoch weder Prognoseunsicherheit noch Sensoridentität oder
+bekannte Kalendereigenschaften der Zielstunde.
+
+Aus den Literaturbefunden in Abschnitt~\ref{sec:SdT_Forecaster} werden daher
+Quantilausgaben, ein kleines Sensor-Embedding, Kalendermerkmale und Dropout
+übernommen. Der einfache Kern aus einer einzelnen LSTM-Schicht bleibt erhalten.
+Tabelle~\ref{tab:forecaster_vorher_nachher} zeigt die Änderung einmalig; der
+faire Ergebnisvergleich folgt in Abschnitt~\ref{sec:Ergebnisse_Modellvergleich}.
+
+\begin{table}[htb]
+  \centering
+  \small
+  \caption{Ursprungs-Forecaster und aktuelle Architektur. Eigene Darstellung.}
+  \label{tab:forecaster_vorher_nachher}
+  \begin{tabularx}{\textwidth}{lXX}
+    \hline
+    Aspekt & Ursprungs-Forecaster & Aktueller Forecaster \\
+    \hline
+    Kontext & zwei Messgrößen & Messgrößen, Beobachtungsmaske und Kalender \\
+    Sensorbezug & keiner & gemeinsames Modell mit Sensor-Embedding \\
+    Ausgabe & zwei Punktprognosen & drei Quantile je Messgröße \\
+    Training & MSE & Pinball Loss und Dropout \\
+    Anomalieentscheidung & absoluter Prognosefehler & kalibriertes Intervall
+      und kausale Persistenz \\
+    \hline
+  \end{tabularx}
+\end{table}
 
 Das LSTM verdichtet das 24-Stunden-Fenster in einen Zustandsvektor
 \cite{hochreiter1997long}. Dieser wird mit einem lernbaren Sensor-Embedding und
@@ -221,13 +302,41 @@ der Quantilausgabe handelt es sich jedoch nicht um eine DeepAR-Implementierung.
 Das Ausgabefeld enthält für \texttt{visitors} und \texttt{avgDuration} jeweils
 die Quantile $q_{0{,}1}$, $q_{0{,}5}$ und $q_{0{,}9}$. Trainiert wird mit der
 über beide Zielgrößen und Quantile gemittelten Pinball-Loss-Funktion
-\cite{koenker1978regression}. Zwei bewusst kleine Konfigurationen werden auf
-einem chronologisch nachgelagerten Tuningabschnitt verglichen. Early Stopping
-begrenzt die Epochenzahl. Anschließend wird die gewählte Konfiguration für die
-ermittelte Epochenzahl erneut auf Training und Tuning trainiert; Kalibrierungs-
-und Testdaten bleiben dabei unberührt. Das kleine Suchraster begrenzt angesichts
-des kurzen Tuningabschnitts das Risiko einer Selektionsüberanpassung
-\cite{cawley2010overfitting}.
+\cite{koenker1978regression}. Die konkrete Breite des Netzes wird nicht aus
+einem fremden Datensatz übernommen, sondern am Umfang der eigenen Daten und an
+einem kleinen Parameterbudget ausgerichtet. Tabelle~\ref{tab:forecaster_architektur}
+zeigt diese Festlegung.
+
+\begin{table}[htb]
+  \centering
+  \small
+  \caption{Größenwahl des Forecasters. Eigene Darstellung.}
+  \label{tab:forecaster_architektur}
+  \begin{tabularx}{\textwidth}{lrrX}
+    \hline
+    Baustein & Größe & Parameter & Begründung für diesen Datensatz \\
+    \hline
+    LSTM & 64 & 18.688 & Verdichtet ein Fenster aus 24 Stunden und acht
+      Kanälen. Wegen nur 4.111 gemessener Trainingsziele bleibt es bei einer
+      rekurrenten Schicht. \\
+    Sensor-Embedding & 6 & 168 & Bildet 28 Sensoren mit $28\cdot6$ Werten als
+      kleine Zusatzinformation ab. \\
+    Dense & 48 & 3.648 & Mischt den 75-dimensionalen Vektor aus LSTM,
+      Embedding und fünf Kalenderwerten und verkleinert ihn auf 48 Werte. \\
+    Dropout & 0{,}25 & 0 & Begrenzt die Anpassung an den kurzen und durch
+      überlappende Fenster stark ähnlichen Trainingszeitraum. \\
+    Ausgabe & 6 & 294 & Durch zwei Messgrößen und drei Quantile je
+      Messgröße vollständig vorgegeben. \\
+    \hline
+  \end{tabularx}
+\end{table}
+
+Insgesamt besitzt das Modell 22.798 trainierbare Parameter. Die Größen
+64, 48 und 6 bilden gemeinsam eine kompakte Projektkonfiguration; sie sind
+keine einzeln aus der Literatur übernommenen Optimalwerte. Breitere oder
+gestapelte LSTM-Schichten werden wegen des kurzen Messzeitraums nicht ergänzt.
+Die endgültige Architektur wird 21 Epochen auf Training und Tuning trainiert;
+Kalibrierungs- und Testdaten bleiben dabei unberührt.
 
 \subsection{Nichtkonformitätsscore und Intervallkalibrierung}
 
@@ -277,4 +386,76 @@ Forecast-Metriken verwendet. Eine fehlende Originalmessung wird unabhängig vom
 Forecast als Datenqualitätsereignis ausgegeben. Dadurch wird ein aus einem
 Zeitprofil erzeugter Ersatzwert weder als reguläre Beobachtung noch als
 bestätigte Verhaltensanomalie fehlinterpretiert.
+
+\section{Denoising-Autoencoder}
+\label{sec:Methode_Autoencoder}
+
+Der Autoencoder bildet eine zweite, vom Prognosemodell getrennte Methode. Er
+erhält ein 24-Stunden-Fenster mit den beiden skalierten Messgrößen und der
+Beobachtungsmaske. Seine Ausgabe rekonstruiert die beiden Messgrößen für alle
+24 Stunden. Der vollständige Aufbau lautet:
+\begin{equation}
+ \operatorname{Input}(24,3) \rightarrow \operatorname{LSTM}(16)
+ \rightarrow \operatorname{RepeatVector}(24)
+ \rightarrow \operatorname{LSTM}(16)
+ \rightarrow \operatorname{Dense}(2).
+\end{equation}
+Die einzelne LSTM-Schicht auf beiden Seiten des komprimierten Zustands folgt
+dem Grundaufbau von Malhotra et al. \cite{malhotra2016encdec}. Die Literatur
+bestimmt damit die Form, während Tabelle~\ref{tab:autoencoder_architektur} die
+an den vorliegenden Datensatz angepassten Größen begründet.
+
+\begin{table}[htb]
+  \centering
+  \small
+  \caption{Größenwahl des Autoencoders. Eigene Darstellung.}
+  \label{tab:autoencoder_architektur}
+  \begin{tabularx}{\textwidth}{lrrX}
+    \hline
+    Baustein & Größe & Parameter & Begründung für diesen Datensatz \\
+    \hline
+    Eingabe & $24\times3$ & 0 & Ein Tag mit zwei Messgrößen und einer
+      Beobachtungsmaske. \\
+    Encoder-LSTM & 16 & 1.280 & Verdichtet 48 Messwerte auf 16 Zustandswerte
+      und bildet damit einen Engpass im Verhältnis 3:1. \\
+    RepeatVector & 24 & 0 & Stellt wieder genau die ursprüngliche Länge von
+      24 Stunden bereit. \\
+    Decoder-LSTM & 16 & 2.112 & Verwendet dieselbe Breite wie der Encoder und
+      führt dadurch keine weitere frei gewählte Größe ein. \\
+    Dense & 2 & 34 & Durch die Rekonstruktion von \texttt{visitors} und
+      \texttt{avgDuration} vollständig vorgegeben. \\
+    \hline
+  \end{tabularx}
+\end{table}
+
+Das Netz besitzt insgesamt 3.426 trainierbare Parameter. Acht Zustandswerte
+wären für Tagesform, Niveau und das Verhältnis beider Messgrößen ein sehr enger
+Engpass. 32 oder mehr Werte würden die Verdichtung deutlich abschwächen und
+könnten ungewöhnliche Eingaben zu leicht rekonstruieren. Deshalb wird 16 als
+kleine mittlere Breite verwendet. Eine zusätzliche versteckte Dense-Schicht ist
+nicht nötig, da die vorhandene Rekonstruktion bereits beide Messgrößen direkt
+aus dem Decoderzustand erzeugt.
+
+Während des Trainings wird in jedem Fenster ein zusammenhängender Block von
+einer bis vier wirklich gemessenen Stunden verdeckt. Damit bleiben selbst im
+größten Fall 20 der 24 Stunden als zeitlicher Kontext erhalten. Die zugehörigen
+Eingabewerte und ihre Maske werden auf null gesetzt, das Rekonstruktionsziel
+bleibt jedoch unverändert. Diese einfache Datenerweiterung folgt dem
+Denoising-Prinzip \cite{vincent2008denoising}. Künstliche Spikes, Dips oder
+andere Testanomalien werden nicht für das Training verwendet.
+
+Trainiert wird mit Adam, Batchgröße 128, höchstens 100 Epochen und Early
+Stopping. Die Huber-Fehlerfunktion verringert den Einfluss einzelner großer,
+im unbeschrifteten Training möglicherweise bereits vorhandener Abweichungen.
+Ergänzte Werte dürfen als markierter Kontext eingehen, besitzen im
+Rekonstruktionsfehler aber das Gewicht null. Das Modell lernt sie daher nicht
+als echte Zielwerte.
+
+Für jede Stunde wird der absolute Rekonstruktionsfehler der letzten Position
+des Fensters verwendet. Damit die beiden Messgrößen vergleichbar werden, wird
+jeder Fehler durch sein 75-\%-Quantil im Kalibrierungsabschnitt geteilt; der
+größere der beiden Werte bildet den gemeinsamen Anomaliewert. Die Alarmregel
+wird anschließend mit demselben Kalibrierungsverfahren wie beim Forecaster
+festgelegt. Dadurch unterscheiden sich die Modelle, während Datenabschnitte,
+Injektionen und Entscheidungskriterien gleich bleiben.
 

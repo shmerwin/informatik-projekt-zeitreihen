@@ -10,7 +10,7 @@ Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
 
 \begin{table}[htb]
   \centering
-  \caption{Chronologische Teilmengen des Forecasters. Alle Grenzen sind in UTC
+  \caption{Chronologische Teilmengen beider Modelle. Alle Grenzen sind in UTC
     angegeben. Eigene Darstellung.}
   \label{tab:forecaster_splits}
   \begin{tabular}{lll r}
@@ -25,12 +25,35 @@ Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
   \end{tabular}
 \end{table}
 
-Auf dem Tuningabschnitt werden zwei kleine LSTM-Konfigurationen verglichen.
-Das Auswahlkriterium ist der über beide Zielgrößen gemittelte relative MAE
-gegenüber der saisonalen $t-24$-Naive-Prognose. Nach dem Refit bestimmt der
-Kalibrierungsabschnitt zunächst die Nichtkonformitätsschwelle und anschließend
-die Persistenzregel. Der Testabschnitt wird für keine dieser Entscheidungen
-verwendet.
+Die Forecaster-Architektur und ihre 21 Epochen sind vor dem endgültigen Lauf
+festgelegt. Für diesen Lauf werden Training und Tuning gemeinsam zum Anpassen
+der Gewichte verwendet. Beim Autoencoder dient der Tuningabschnitt dem Early
+Stopping. Anschließend bestimmt der Kalibrierungsabschnitt für beide Modelle
+die Schwellen und die Persistenzregel. Der Testabschnitt wird für keine dieser
+Entscheidungen verwendet.
+
+\section{Vergleich mit dem Ursprungs-Forecaster}
+\label{sec:Evaluation_Ursprungsforecaster}
+
+Für den Vorher-Nachher-Vergleich wird nicht der historische Trainingslauf des
+Ursprungs-Forecasters verwendet, weil dieser noch auf den nicht
+zusammengefassten Rohzeilen arbeitete. Stattdessen wird seine ursprüngliche
+Architektur aus Abschnitt~\ref{sec:Methode_Forecasterentwicklung} auf derselben
+bereinigten Datenbasis wie der aktuelle Forecaster neu trainiert. Beide
+Ansätze verwenden dieselben Zeitgrenzen, gemessenen Zielstunden,
+Zufallsstartwerte, 21 Trainingsepochen und künstlichen Anomalieereignisse. Die
+absoluten Fehler des Ursprungsmodells werden je Zielgröße durch ihr
+99-\%-Quantil auf den unveränderten Kalibrierungswerten geteilt und anschließend
+durch das Maximum beider Zielgrößen zusammengeführt. Schwellen und
+Persistenzregel werden für beide Modellstände ausschließlich im
+Kalibrierungsabschnitt bestimmt; das Alarmbudget beträgt jeweils höchstens
+1~\% auf den unveränderten Kalibrierungswerten.
+
+Der Vergleich bewertet damit die beiden vollständigen Modellstände unter
+gleichen Bedingungen. Er zeigt nicht den isolierten Anteil einer einzelnen
+Ergänzung wie Sensor-Embedding, Quantilausgabe oder Dropout. Eine solche
+Trennung würde mehrere zusätzliche Zwischenmodelle erfordern und ist für die
+Fragestellung dieses Projekts nicht notwendig.
 
 \section{Bewertung der Prognosegüte}
 
@@ -64,6 +87,8 @@ aber keine Evaluation realer Ereignisse \cite{schmidl2022evaluation}. Die
 Anomalien werden ausschließlich in ursprünglich gemessene Werte injiziert,
 bevor Zeitfenster erzeugt und Prognosen berechnet werden. Damit beeinflussen
 mehrstündige Ereignisse den nachfolgenden Modellkontext wie reale Messwerte.
+Forecaster und Autoencoder erhalten dieselben ausgewählten Sensoren,
+Zeitpunkte, Merkmale, Richtungen und Stärken.
 
 Untersucht werden ein einstündiger positiver Spike, ein einstündiger Dip, ein
 vierstündiger Level-Shift, ein über vier Stunden ansteigender Drift und ein
@@ -75,9 +100,9 @@ Merkmal auf die letzte vorherige Messung ein; Ereignisse mit weniger als
 0{,}5 realisierter IQR-Abweichung werden verworfen, weil sie keine belastbare
 künstliche Veränderung darstellen.
 
-Die Auswahl der Alarmregel verwendet drei feste Seeds im
+Die Auswahl der Alarmregel verwendet drei feste Zufallsstartwerte im
 Kalibrierungsabschnitt und nur die Stärken 1{,}0 und 2{,}0. Der endgültige
-Benchmark verwendet drei andere feste Seeds im Testabschnitt und schließt
+Vergleichstest verwendet drei andere feste Zufallsstartwerte im Testabschnitt und schließt
 0{,}5 als Sensitivitätsanalyse ein. Pro Lauf wird höchstens ein Ereignis je
 Sensor erzeugt. Jede injizierte Reihe wird mit einem identischen unveränderten
 Gegenlauf gepaart. Ein Treffer zählt nur, wenn die Injektion einen zusätzlichen
@@ -109,24 +134,29 @@ Adjustment verwendet, da es die gemessene Leistung stark überschätzen kann
 
 \section{Reproduzierbarkeit}
 
-Die Pipeline wird aus dem Projektverzeichnis mit folgenden Befehlen ausgeführt:
+Die explorative Ausgangsanalyse ist in \texttt{analyse/analyse.py} erhalten;
+\texttt{analyse/preprocessing\_plots.py} erzeugt die Vorher-Nachher-Abbildungen
+der Aufbereitung. Die eigentliche Pipeline wird aus dem Projektverzeichnis mit
+folgenden Befehlen ausgeführt:
 \begin{verbatim}
 py -3.12 -m src.preprocessing
 py -3.12 -m src.forecaster.train
+py -3.12 -m src.autoencoder.train
+py -3.12 -m src.benchmark
 py -3.12 -m src.forecaster.evaluate
-py -3.12 -m src.forecaster.benchmark
 \end{verbatim}
-Bei unveränderten Rohdaten genügt für ein neues Modell die Ausführung der
-letzten drei Befehle. Für die erneute Auswertung des bereits gespeicherten
-Modells reicht \texttt{py -3.12 -m src.forecaster.evaluate}. Der davon getrennte
-synthetische Injektionstest wird bei Bedarf mit
-\texttt{py -3.12 -m src.forecaster.benchmark} ausgeführt. Modellparameter,
+Bei unveränderten Rohdaten werden nur die gewünschten Modelle neu trainiert.
+Für die erneute Auswertung des gespeicherten Forecasters reicht
+\texttt{py -3.12 -m src.forecaster.evaluate}. Der davon getrennte synthetische
+Vergleich beider Modelle wird mit \texttt{py -3.12 -m src.benchmark}
+ausgeführt. Modellparameter,
 Splits, Skalierung, Kalibrierung und Detektorregel werden in
 \texttt{model\_bundle.json} gespeichert. Die Auswertung erzeugt unter anderem
 \texttt{evaluation\_metrics.json}, \texttt{anomalies.csv},
 \texttt{anomaly\_events.csv} und die Abbildung
-\texttt{anomalies\_example.png}. Der separate Injektionstest schreibt
-\texttt{injection\_benchmark.csv} und \texttt{injection\_benchmark.json}.
+\texttt{anomalies\_example.png}. Der gemeinsame Injektionstest schreibt die
+Detailergebnisse je Modell und fasst beide zusätzlich in
+\texttt{saved\_models/benchmark/model\_comparison.csv} zusammen.
 
 
 

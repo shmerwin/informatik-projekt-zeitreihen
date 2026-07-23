@@ -1,36 +1,18 @@
 \chapter{Ergebnisse}
 \label{ch:Ergebnisse}
 
-\section{Modellauswahl und Detektorkalibrierung}
+\section{Training und Detektorkalibrierung}
 
-Tabelle~\ref{tab:forecaster_selection} zeigt die auf dem Tuningabschnitt
-ermittelten Werte der beiden LSTM-Konfigurationen. Der Mittelwert der beiden
-relativen MAE-Werte dient ausschließlich der Modellauswahl.
-
-\begin{table}[htb]
-  \centering
-  \caption{Ergebnis der LSTM-Auswahl auf dem Tuningabschnitt. Eigene
-    Darstellung.}
-  \label{tab:forecaster_selection}
-  \begin{tabular}{lrrrr}
-    \hline
-    Modell & beste Epoche & MAE Visitors & MAE Duration & mittl. rel. MAE \\
-    \hline
-    Small & 32 & 16{,}400 & 3{,}486 & 0{,}883 \\
-    Regularized & 21 & 15{,}176 & 3{,}598 & 0{,}851 \\
-    \hline
-  \end{tabular}
-\end{table}
-
-Gewählt wird die regularisierte Konfiguration mit 64 LSTM-Einheiten, einer
-dichten Schicht mit 48 Einheiten, einem sechsdimensionalen Sensor-Embedding,
-Dropout 0{,}25 und einer Lernrate von 0{,}0005. Der Trainingsverlauf ist in
+Die in Abschnitt~\ref{sec:Methode_Forecaster} begründete feste Architektur wird
+21 Epochen auf 4.429 gemessenen Zielen aus Training und Tuning trainiert. Der
+getrennte Kalibrierungsabschnitt und der Testabschnitt werden dabei nicht zum
+Anpassen der Modellgewichte verwendet. Der Trainingsverlauf ist in
 Abbildung~\ref{fig:forecaster_training} dargestellt.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.82\textwidth]{../saved_models/forecaster/training_history.png}
-  \caption{Validierungs-Pinball-Loss der beiden Modellkandidaten. Eigene
+  \caption{Pinball-Loss des endgültigen Forecaster-Trainings. Eigene
     Darstellung.}
   \label{fig:forecaster_training}
 \end{figure}
@@ -138,6 +120,55 @@ PR-AUC, IoU und Verzögerung stehen in
 \texttt{injection\_benchmark.csv} und
 \texttt{injection\_benchmark.json}.
 
+\section{Vergleich der Modellstände}
+\label{sec:Ergebnisse_Modellvergleich}
+
+Tabelle~\ref{tab:model_comparison} vergleicht den fair neu trainierten
+Ursprungs-Forecaster, den aktuellen Forecaster und den Autoencoder auf denselben
+starken Testinjektionen. Dazu werden die fünf Anomaliearten gleich gewichtet
+gemittelt. Die künstlichen Ereignisse und die Alarmregel des Testabschnitts
+wurden für kein Modell zur Auswahl der Netzschichten verwendet.
+
+\begin{table}[htb]
+  \centering
+  \caption{Gemeinsamer Vergleich auf starken künstlichen Anomalien. Eigene
+    Darstellung.}
+  \label{tab:model_comparison}
+  \begin{tabular}{lrrrrr}
+    \hline
+    Modell & Parameter & Punkt-F1 & PR-AUC & Ereignis-R & Ereignis-F1 \\
+    \hline
+    Ursprungs-Forecaster & 17.282 & 0{,}393 & 0{,}250 & 0{,}486 & 0{,}535 \\
+    Forecaster & 22.798 & 0{,}603 & 0{,}502 & 0{,}630 & 0{,}722 \\
+    Autoencoder & 3.426 & 0{,}425 & 0{,}237 & 0{,}552 & 0{,}581 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Gegenüber dem Ursprungs-Forecaster steigt der Punkt-F1 des aktuellen Systems
+von 0{,}393 auf 0{,}603, die PR-AUC von 0{,}250 auf 0{,}502, der
+Ereignis-Recall von 0{,}486 auf 0{,}630 und der Ereignis-F1 von 0{,}535 auf
+0{,}722. Relativ entspricht dies Verbesserungen von 53{,}3~\%, 101{,}0~\%,
+29{,}5~\% und 34{,}9~\%. Der Vergleich belegt den Unterschied zwischen den
+beiden vollständigen Modellständen; er weist nicht nach, welchen Einzelanteil
+Sensor-Embedding, Quantilausgabe, Dense-Schicht oder Dropout daran haben.
+
+Die Verbesserung betrifft vor allem die Anomalietrennung und nicht jede
+Prognosekennzahl. Für \texttt{visitors} sinkt die MAE von 12{,}596 auf 12{,}114
+und die MASE von 0{,}647 auf 0{,}622. Bei \texttt{avgDuration} liegt das
+Ursprungsmodell mit einer MAE von 4{,}108 und einer MASE von 0{,}851 knapp vor
+den aktuellen Werten 4{,}124 und 0{,}855. Ein allgemein kleinerer
+Prognosefehler allein erklärt die bessere Anomalieerkennung somit nicht.
+
+Der Autoencoder benötigt rund 85~\% weniger Parameter, erkennt die geprüften
+Anomalien aber insgesamt schlechter. Seine höchsten Ereignis-F1-Werte erreicht
+er bei Level-Shifts mit 0{,}764 und Drifts mit 0{,}698. Gerade für diese
+mehrstündigen Veränderungen liefert die Rekonstruktion somit ein brauchbares
+zusätzliches Ergebnis. Der Forecaster liegt jedoch bei jeder der fünf
+Anomaliearten vorn und bleibt deshalb für den aktuellen Datensatz das stärkere
+Einzelmodell. Eine Mischung beider Anomaliewerte wurde nicht vorgenommen,
+damit Prognose und Rekonstruktion getrennt beurteilt werden können.
+
 \section{Diskussion und Limitationen}
 
 Die Ergebnisse beantworten die Forschungsfrage differenziert. Der globale
@@ -145,7 +176,9 @@ Quantil-Forecaster übertrifft die saisonale Baseline im mittleren
 Prognosefehler. Starke punktuelle und mehrstündige Injektionen werden teilweise
 bis überwiegend erkannt; die zusätzliche Persistenz verbessert vor allem
 Level-Shift, Drift und Stuck-at. Für schwache Anomalien und einzelne Dips ist
-die Sensitivität gering.
+die Sensitivität gering. Der kompakte Autoencoder bestätigt, dass
+Rekonstruktionsfehler grundsätzlich nutzbar sind, erreicht auf diesen Daten
+aber nicht die Erkennungsleistung des Forecasters.
 
 Die synthetische Ground Truth gilt ausschließlich für die definierten
 Transformationen. Sie belegt weder den Recall unbekannter realer Anomalien noch
@@ -154,5 +187,5 @@ Wochen umfassende Datensatz begrenzt außerdem die beobachtbaren Wochenmuster
 und die Größe von Tuning und Kalibrierung. Zeitliche Abhängigkeit verhindert
 eine klassische verteilungsfreie Conformal-Garantie. Schließlich wurde der
 Testzeitraum im Verlauf der retrospektiven Entwicklung bereits betrachtet;
-die Testinjektionen sind durch neue Seeds und eine eingefrorene Regel getrennt,
+die Testinjektionen sind durch neue Zufallsstartwerte und eine festgelegte Regel getrennt,
 stellen aber keine vollständig unangetastete konfirmatorische Studie dar.
