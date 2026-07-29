@@ -15,8 +15,9 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 
 from ..forecaster.common import (
-    ALPHA, CALIBRATION_END, DATA_PATH, FEATURES, SEED, TRAIN_END, TUNE_END,
-    WINDOW_SIZE, fit_scaler, load_data, make_windows, set_seed, split_masks,
+    ALPHA, ANOMALY_FEATURE, CALIBRATION_END, DATA_PATH, FEATURES, SEED, TRAIN_END,
+    TUNE_END, WINDOW_SIZE, fit_scaler, load_data, make_windows, set_seed,
+    split_masks,
 )
 
 
@@ -76,9 +77,10 @@ def reconstruction_errors(model, data):
 
 
 def reconstruction_scores(data, model, bundle):
-    """Gemeinsame Auswertung erwartet genau einen Anomaliewert je Zielstunde."""
+    """Die Rekonstruktion nutzt beide Größen; der Alarm bewertet Besucher."""
     errors = reconstruction_errors(model, data)
-    scores = np.max(errors / np.asarray(bundle["error_scale"]), axis=1)
+    target = FEATURES.index(bundle.get("anomaly_feature", ANOMALY_FEATURE))
+    scores = errors[:, target] / np.asarray(bundle["error_scale"])[target]
     scores[~data["observed"]] = np.nan
     return scores
 
@@ -118,7 +120,8 @@ def train():
     error_scale = np.maximum(
         np.quantile(calibration_errors, 0.75, axis=0), 0.05
     )
-    calibration_scores = np.max(calibration_errors / error_scale, axis=1)
+    target = FEATURES.index(ANOMALY_FEATURE)
+    calibration_scores = calibration_errors[:, target] / error_scale[target]
     rank = min(
         len(calibration_scores),
         int(np.ceil((len(calibration_scores) + 1) * (1 - ALPHA))),
@@ -127,6 +130,7 @@ def train():
     bundle = {
         "model": "autoencoder.keras",
         "features": FEATURES,
+        "anomaly_feature": ANOMALY_FEATURE,
         "window_size": WINDOW_SIZE,
         "architecture": {"lstm_units": LSTM_UNITS},
         "training": {
@@ -139,6 +143,7 @@ def train():
         "error_scale": error_scale.tolist(),
         "calibrator": {
             "alpha": ALPHA,
+            "target_feature": ANOMALY_FEATURE,
             "threshold": float(np.sort(calibration_scores)[rank - 1]),
         },
         "splits": {

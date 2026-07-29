@@ -21,9 +21,9 @@ als Anomaliesignal verwendet.
 
 Ein Vorhersagemodell erhält die letzten $w$ Zeitpunkte und schätzt den nächsten
 Wert $\hat{x}_t$. Ein großer Prognosefehler $|x_t-\hat{x}_t|$ deutet darauf hin,
-dass die Beobachtung nicht zum erlernten Verlauf passt. Unterschiedlich
-skalierte Messgrößen müssen vor einer gemeinsamen Entscheidung auf eine
-vergleichbare Skala gebracht werden. Vorhersagegüte und Erkennungsleistung sind
+dass die Beobachtung nicht zum erlernten Verlauf passt. Zusätzliche Messgrößen
+können beim Lernen als Kontext dienen, ohne selbst Teil der Alarmentscheidung
+zu sein. Vorhersagegüte und Erkennungsleistung sind
 dabei nicht gleichbedeutend: Ein kleiner mittlerer Fehler garantiert noch keine klare Trennung seltener
 Anomalien.
 

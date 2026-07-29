@@ -3,14 +3,15 @@
 
 Die aufbereiteten Sensordaten wurden mit zwei getrennten Verfahren untersucht:
 Ein Forecaster bewertet Abweichungen von seiner Prognose, ein kompakter
-Autoencoder bewertet Rekonstruktionsfehler. Beide Modelle verwenden dieselben
-Zeitabschnitte, ursprünglich gemessenen Zielwerte und künstlichen
-Testanomalien. Dadurch ist der Vergleich nachvollziehbar, ohne die beiden
+Autoencoder bewertet Rekonstruktionsfehler. Beide Modelle lernen zusätzlich
+die Verweildauer, ihre Alarme und künstlichen Testanomalien beziehen sich aber
+ausschließlich auf die Passantenfrequenz. Sie verwenden dieselben Zeitabschnitte
+und ursprünglich gemessenen Zielwerte. Dadurch ist der Vergleich nachvollziehbar, ohne die beiden
 Anomaliewerte miteinander zu vermischen.
 
-Der Forecaster erkennt die geprüften Anomaliearten insgesamt besser. Der
-Autoencoder ist deutlich kleiner und reagiert besonders auf mehrstündige
-Verschiebungen und Drifts, erreicht aber nicht die gleiche Zuverlässigkeit.
+Der Forecaster erreicht insgesamt den höheren Punkt- und Ereignis-F1. Der
+Autoencoder ist deutlich kleiner und erzielt einen ähnlich hohen
+Ereignis-Recall, erzeugt dabei jedoch mehr zusätzliche Alarmereignisse.
 Mehr Schichten sind mit den kurzen Datenreihen daher derzeit nicht begründet.
 Als nächste Schritte sind vor allem die vollständige manuelle Prüfung der nach
 dem letzten Training aktuellen Kandidaten, die Klärung der geplanten
