@@ -33,20 +33,20 @@ def causal_exceedance_count(scores, sensors, times, observed, threshold, window)
     return result
 
 
-def detector_output(joint_score, sensors, times, observed, detector):
+def detector_output(scores, sensors, times, observed, detector):
     """Wendet Punktschwelle und optionale kausale Persistenzregel an."""
     if detector.get("persistence_window"):
         count = causal_exceedance_count(
-            joint_score, sensors, times, observed, detector["low_threshold"],
+            scores, sensors, times, observed, detector["low_threshold"],
             detector["persistence_window"],
         )
         persistence = count - (detector["required_exceedances"] - 0.5)
     else:
-        count = np.full(len(joint_score), np.nan)
-        persistence = np.full(len(joint_score), -np.inf)
+        count = np.full(len(scores), np.nan)
+        persistence = np.full(len(scores), -np.inf)
 
     evidence = np.fmax(
-        np.asarray(joint_score) - detector["point_threshold"], persistence
+        np.asarray(scores) - detector["point_threshold"], persistence
     )
     alarm = np.asarray(observed, bool) & (evidence > 0)
     return alarm, count, evidence

@@ -95,7 +95,8 @@ beobachteten Datenmerkmal abgeleitet.
     Tages- und Wochenrhythmus sowie stark unterschiedliche Sensorniveaus &
       Kalendermerkmale, Zeitprofile und sensorweise Skalierung verwenden \\
     Mittlere sensorweise Korrelation von nur 0{,}13 zwischen den Zielgrößen &
-      \texttt{visitors} und \texttt{avgDuration} getrennt beibehalten \\
+      \texttt{avgDuration} als zusätzliche Modellgröße beibehalten, den Alarm
+      aber auf \texttt{visitors} ausrichten \\
     \hline
   \end{tabularx}
 \end{table}
@@ -165,22 +166,10 @@ werden alle 2.646 Lücken innerhalb der aktiven Sensorperioden geschlossen;
 Zeiten vor der ersten und nach der letzten Messung eines Sensors bleiben
 außerhalb des Datensatzes.
 
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=\textwidth]{Figures/preproc_luecken_heatmap.png}
-  \caption{Messstatus vor der Bereinigung (oben) und danach (unten). Rot zeigt
-    Lücken innerhalb der aktiven Sensorzeit, Blau ergänzte Werte und Grau
-    Zeiträume, in denen der betreffende Sensor nicht aktiv war. Eigene
-    Darstellung.}
-  \label{fig:preproc_heatmap}
-\end{figure}
-
-Der untere Teil von Abbildung~\ref{fig:preproc_heatmap} kennzeichnet die
-ergänzten Stunden. Abbildung~\ref{fig:preproc_beispiele} stellt eine typische
-Reihe und den Sensor mit der kürzesten aktiven Erfassungszeit gegenüber. Sie
-zeigt zugleich, dass die Reihe nach dem Ende des Sensors nicht künstlich
-fortgeschrieben wird. Abbildung~\ref{fig:preproc_anteil} fasst den ergänzten
-Anteil innerhalb der aktiven Zeit jedes Sensors zusammen.
+Abbildung~\ref{fig:preproc_beispiele} kennzeichnet für zwei Sensoren die
+ergänzten Stunden und zeigt zugleich, dass die Reihe nach dem Ende eines Sensors
+nicht künstlich fortgeschrieben wird. Abbildung~\ref{fig:preproc_anteil} fasst
+den ergänzten Anteil innerhalb der aktiven Zeit jedes Sensors zusammen.
 
 \begin{figure}[htb]
   \centering
@@ -264,45 +253,17 @@ die beiden skalierten Messgrößen, eine Maske für gemessen beziehungsweise
 imputiert sowie Sinus und Kosinus von lokaler Stunde und Wochentag und einen
 Wochenendindikator. Die fünf Kalendermerkmale der Zielstunde und eine
 Sensor-ID werden dem Modell zusätzlich übergeben.
+Beide Messgrößen unterstützen damit das Lernen des zeitlichen Kontexts. Das
+fachliche Anomalieziel des Projekts ist jedoch ausschließlich die
+Passantenfrequenz.
 
-\subsection{Vom Ursprungs-Forecaster zur aktuellen Architektur}
-\label{sec:Methode_Forecasterentwicklung}
+\subsection{Architektur und Größenwahl}
+\label{sec:Methode_Forecasterarchitektur}
 
-Der erste Forecaster des Projekts bestand aus
-\begin{equation}
- \operatorname{Input}(24,2)
- \rightarrow \operatorname{LSTM}(64)
- \rightarrow \operatorname{Dense}(2).
-\end{equation}
-Er besaß 17.282 trainierbare Parameter und erzeugte mit MSE trainierte
-Punktprognosen für beide Messgrößen. Dieser verständliche Ausgangspunkt
-berücksichtigte jedoch weder Prognoseunsicherheit noch Sensoridentität oder
-bekannte Kalendereigenschaften der Zielstunde.
-
-Aus den Literaturbefunden in Abschnitt~\ref{sec:SdT_Forecaster} werden daher
-Quantilausgaben, ein kleines Sensor-Embedding, Kalendermerkmale und Dropout
-übernommen. Der einfache Kern aus einer einzelnen LSTM-Schicht bleibt erhalten.
-Tabelle~\ref{tab:forecaster_vorher_nachher} zeigt die Änderung einmalig; der
-faire Ergebnisvergleich folgt in Abschnitt~\ref{sec:Ergebnisse_Modellvergleich}.
-
-\begin{table}[htb]
-  \centering
-  \small
-  \caption{Ursprungs-Forecaster und aktuelle Architektur. Eigene Darstellung.}
-  \label{tab:forecaster_vorher_nachher}
-  \begin{tabularx}{\textwidth}{lXX}
-    \hline
-    Aspekt & Ursprungs-Forecaster & Aktueller Forecaster \\
-    \hline
-    Kontext & zwei Messgrößen & Messgrößen, Beobachtungsmaske und Kalender \\
-    Sensorbezug & keiner & gemeinsames Modell mit Sensor-Embedding \\
-    Ausgabe & zwei Punktprognosen & drei Quantile je Messgröße \\
-    Training & MSE & Pinball Loss und Dropout \\
-    Anomalieentscheidung & absoluter Prognosefehler & kalibriertes Intervall
-      und kausale Persistenz \\
-    \hline
-  \end{tabularx}
-\end{table}
+Die Architektur übernimmt aus den Literaturbefunden in
+Abschnitt~\ref{sec:SdT_Forecaster} Quantilausgaben, ein kleines
+Sensor-Embedding, Kalendermerkmale und Dropout. Der Kern bleibt eine einzelne
+LSTM-Schicht.
 
 Das LSTM verdichtet das 24-Stunden-Fenster in einen Zustandsvektor
 \cite{hochreiter1997long}. Dieser wird mit einem lernbaren Sensor-Embedding und
@@ -318,6 +279,8 @@ die Quantile $q_{0{,}1}$, $q_{0{,}5}$ und $q_{0{,}9}$. Trainiert wird mit der
 einem fremden Datensatz übernommen, sondern am Umfang der eigenen Daten und an
 einem kleinen Parameterbudget ausgerichtet. Tabelle~\ref{tab:forecaster_architektur}
 zeigt diese Festlegung.
+Die Prognose der Verweildauer bleibt eine Hilfsaufgabe; nur die
+\texttt{visitors}-Ausgabe wird später zur Alarmbildung verwendet.
 
 \begin{table}[htb]
   \centering
@@ -358,30 +321,33 @@ vorhergesagten Quantilintervall relativ zu dessen Breite bewertet:
  e_{t,f}=\frac{\max\{q_{0{,}1,t,f}-y_{t,f},\,
  y_{t,f}-q_{0{,}9,t,f}\}}
  {\max\{q_{0{,}9,t,f}-q_{0{,}1,t,f},w_{\min,f}\}},
- \qquad s_t=\max_f e_{t,f}.
+ \qquad s_t=e_{t,\mathrm{visitors}}.
 \end{equation}
 Ein negativer Wert liegt innerhalb des ursprünglichen Quantilintervalls; ein
-positiver Wert misst die relative Überschreitung. Das Maximum $s_t$ erzeugt
-eine gemeinsame Entscheidung für beide Zielgrößen. Aus 368 gemessenen Punkten
+positiver Wert misst die relative Überschreitung. Die Fehler beider Größen
+werden zur Diagnose ausgegeben; allein der Besucherfehler $s_t$ steuert den
+Alarm. Aus 368 gemessenen Punkten
 des getrennten Kalibrierungsabschnitts wird bei nominal
 $\alpha=0{,}01$ eine endliche empirische Quantilschwelle bestimmt. Das
 Verfahren ist an Conformalized Quantile Regression angelehnt
-\cite{romano2019cqr}, verwendet aber zusätzlich eine Breitenstandardisierung
-und ein Maximum über zwei Zielgrößen. Wegen der zeitlichen Abhängigkeit der
+\cite{romano2019cqr} und verwendet zusätzlich eine Breitenstandardisierung.
+Die Intervalle beider Größen werden getrennt kalibriert; die Alarmschwelle
+beruht nur auf \texttt{visitors}. Wegen der zeitlichen Abhängigkeit der
 Fenster wird keine verteilungsfreie 99-\%-Garantie beansprucht
 \cite{barber2023beyond}; die tatsächliche Testabdeckung wird berichtet.
 
-\subsection{Kausale Hybridregel}
+\subsection{Kausale Alarmregel}
 
-Starke Einzelabweichungen werden unmittelbar erkannt. Für moderate, aber
-anhaltende Abweichungen wird zusätzlich eine kausale Persistenzregel verwendet:
+Starke Einzelabweichungen werden unmittelbar erkannt. Als mögliche Erweiterung
+für moderate, aber anhaltende Abweichungen wird auch eine kausale
+Persistenzregel geprüft:
 \begin{equation}
  A_t=\mathbf{1}(s_t>\tau_{\mathrm{hoch}})\ \lor\
  \mathbf{1}\!\left(
  \sum_{j=0}^{m-1}\mathbf{1}(s_{t-j}>\tau_{\mathrm{niedrig}})\geq k
  \right).
 \end{equation}
-Die Regel arbeitet je Sensor, betrachtet nur aktuelle und vergangene Scores
+Eine solche Regel arbeitet je Sensor, betrachtet nur aktuelle und vergangene Scores
 und wird bei einer Zeitlücke oder einem imputierten Ziel zurückgesetzt. Aus 18
 vorab festgelegten Kombinationen werden $\tau_{\mathrm{hoch}}$,
 $\tau_{\mathrm{niedrig}}$, $m$ und $k$ ausschließlich anhand synthetischer
@@ -399,7 +365,7 @@ Forecast als Datenqualitätsereignis ausgegeben. Dadurch wird ein aus einem
 Zeitprofil erzeugter Ersatzwert weder als reguläre Beobachtung noch als
 bestätigte Verhaltensanomalie fehlinterpretiert.
 
-\section{Denoising-Autoencoder}
+\section[Autoencoder]{Denoising-Autoencoder}
 \label{sec:Methode_Autoencoder}
 
 Der Autoencoder bildet eine zweite, vom Prognosemodell getrennte Methode. Er
@@ -464,10 +430,11 @@ Rekonstruktionsfehler aber das Gewicht null. Das Modell lernt sie daher nicht
 als echte Zielwerte.
 
 Für jede Stunde wird der absolute Rekonstruktionsfehler der letzten Position
-des Fensters verwendet. Damit die beiden Messgrößen vergleichbar werden, wird
-jeder Fehler durch sein 75-\%-Quantil im Kalibrierungsabschnitt geteilt; der
-größere der beiden Werte bildet den gemeinsamen Anomaliewert. Die Alarmregel
-wird anschließend mit demselben Kalibrierungsverfahren wie beim Forecaster
-festgelegt. Dadurch unterscheiden sich die Modelle, während Datenabschnitte,
-Injektionen und Entscheidungskriterien gleich bleiben.
+des Fensters verwendet. Der Besucherfehler wird durch sein 75-\%-Quantil im
+Kalibrierungsabschnitt geteilt und bildet den Anomaliewert. Die Rekonstruktion
+von \texttt{avgDuration} bleibt eine Hilfsaufgabe und wird zur Diagnose
+ausgegeben, kann aber keinen Alarm auslösen. Die Alarmregel wird anschließend
+mit demselben Kalibrierungsverfahren wie beim Forecaster festgelegt. Dadurch
+unterscheiden sich die Modelle, während Datenabschnitte, Besucher-Injektionen
+und Entscheidungskriterien gleich bleiben.
 

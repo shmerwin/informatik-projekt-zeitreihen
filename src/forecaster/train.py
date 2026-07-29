@@ -13,10 +13,9 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from .common import (
-    ALPHA, CALIBRATION_END, DATA_PATH, FEATURES, MODEL_DIR, QUANTILES,
-    TRAIN_END, TUNE_END, build_model, fit_calibrator, fit_scaler,
-    load_data, make_windows, model_inputs, predict_quantiles, set_seed,
-    split_masks,
+    ALPHA, ANOMALY_FEATURE, CALIBRATION_END, DATA_PATH, FEATURES, MODEL_DIR,
+    QUANTILES, TRAIN_END, TUNE_END, build_model, fit_calibrator, fit_scaler,
+    load_data, make_windows, model_inputs, predict_quantiles, set_seed, split_masks,
 )
 
 
@@ -72,6 +71,7 @@ def train(data_path=DATA_PATH, model_dir=MODEL_DIR):
     bundle = {
         "model": "forecaster.keras",
         "features": FEATURES,
+        "anomaly_feature": ANOMALY_FEATURE,
         "quantiles": QUANTILES,
         "window_size": 24,
         "architecture": PARAMS,

@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA_PATH = ROOT / "data" / "processed" / "cleaned_sensordata.json"
 MODEL_DIR = ROOT / "saved_models" / "forecaster"
 FEATURES = ["visitors", "avgDuration"]
+ANOMALY_FEATURE = "visitors"
 WINDOW_SIZE = 24
 QUANTILES = [0.1, 0.5, 0.9]
 TRAIN_END = pd.Timestamp("2025-07-08", tz="UTC")
@@ -191,16 +192,23 @@ def predict_quantiles(model, data, mask=None):
 
 
 def fit_calibrator(actual, prediction, alpha=ALPHA):
-    """Kalibriert eine gemeinsame Schwelle für beide Messgrößen."""
+    """Kalibriert den Alarm auf die Besucherfrequenz."""
     breite = prediction[..., -1] - prediction[..., 0]
     minimum = np.maximum(np.quantile(breite, 0.1, axis=0), 0.05)
     feature_score = np.maximum(
         prediction[..., 0] - actual, actual - prediction[..., -1]
     ) / np.maximum(breite, minimum)
-    scores = np.sort(feature_score.max(axis=1))
+    target = FEATURES.index(ANOMALY_FEATURE)
+    scores = np.sort(feature_score[:, target])
     rang = min(len(scores), int(np.ceil((len(scores) + 1) * (1 - alpha))))
+    feature_thresholds = []
+    for values in feature_score.T:
+        values = np.sort(values)
+        feature_thresholds.append(float(values[rang - 1]))
     return {
         "alpha": alpha, "threshold": float(scores[rang - 1]),
+        "target_feature": ANOMALY_FEATURE,
+        "feature_thresholds": feature_thresholds,
         "minimum_width": minimum.tolist(), "scores": scores.tolist(),
     }
 
@@ -211,16 +219,18 @@ def anomaly_scores(actual, prediction, calibrator):
     feature = np.maximum(
         prediction[..., 0] - actual, actual - prediction[..., -1]
     ) / breite
-    joint = feature.max(axis=1)
+    target = FEATURES.index(calibrator.get("target_feature", ANOMALY_FEATURE))
+    score = feature[:, target]
     kalibrierung = np.asarray(calibrator["scores"])
-    p = (len(kalibrierung) - np.searchsorted(kalibrierung, joint) + 1) / (
+    p = (len(kalibrierung) - np.searchsorted(kalibrierung, score) + 1) / (
         len(kalibrierung) + 1
     )
-    return feature, joint, p
+    return feature, score, p
 
 
 def conformal_bounds(prediction, calibrator):
     minimum = np.asarray(calibrator["minimum_width"])
     breite = np.maximum(prediction[..., -1] - prediction[..., 0], minimum)
-    abstand = calibrator["threshold"] * breite
+    thresholds = calibrator.get("feature_thresholds", calibrator["threshold"])
+    abstand = np.asarray(thresholds) * breite
     return prediction[..., 0] - abstand, prediction[..., -1] + abstand

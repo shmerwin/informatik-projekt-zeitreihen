@@ -6,7 +6,8 @@
 \label{ch:Abstract}
 
 Diese Arbeit entwickelt ein unüberwachtes Verfahren zur Erkennung auffälliger
-Passanten- und Verweildauerdaten aus Bad Nauheim. Die Datenaufbereitung fasst
+Passantenfrequenzen aus Bad Nauheim. Die Verweildauer bleibt eine zusätzliche
+Modellgröße, löst jedoch keinen Alarm aus. Die Datenaufbereitung fasst
 Mehrfachmessungen zusammen, erkennt einen gemeinsamen Systemausfall und ergänzt
 interne Lücken ohne Informationen aus dem späteren Testzeitraum. Imputierte
 Werte bleiben als gekennzeichneter Kontext erhalten, werden aber nicht als
@@ -16,10 +17,10 @@ Das Hauptmodell ist ein Quantil-LSTM mit 22.798 Parametern, das aus den
 vorhergehenden 24 Stunden die nächste Stunde prognostiziert. Ein kompakter
 LSTM-Autoencoder mit 3.426 Parametern bildet eine getrennte Vergleichsmethode.
 Bei starken künstlichen Anomalien erreicht der Forecaster einen mittleren
-Punkt-F1 von 0{,}606 und einen Ereignis-F1 von 0{,}728. Das ursprüngliche
-LSTM erreicht unter denselben Bedingungen 0{,}415 beziehungsweise 0{,}529, der
-Autoencoder 0{,}477 beziehungsweise 0{,}607. Im unveränderten Testabschnitt
-markiert der Forecaster 18 Stunden in elf Ereignissen. Diese Werte zeigen die
+Punkt-F1 von 0{,}783 und einen Ereignis-F1 von 0{,}855. Der Autoencoder
+erreicht unter denselben Bedingungen 0{,}706 beziehungsweise 0{,}777. Im
+unveränderten Testabschnitt markiert der Forecaster 15 Stunden in 13
+Ereignissen. Diese Werte zeigen die
 technische Erkennungsfähigkeit für definierte Veränderungen; die nur
 zweiwöchige Datenbasis und fehlende vollständige reale Markierungen begrenzen
 die Übertragbarkeit auf unbekannte reale Anomalien.

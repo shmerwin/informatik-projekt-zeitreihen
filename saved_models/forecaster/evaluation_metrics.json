@@ -7,8 +7,8 @@
       "relative_mae_vs_t_minus_24_test": 0.7291233056131143,
       "seasonal_naive_test_mae": 16.26002971768202,
       "mase_training_scale": 18.6017634092579,
-      "interval_coverage": 0.9977711738484398,
-      "mean_interval_width": 180.5867162446654
+      "interval_coverage": 0.9888558692421991,
+      "mean_interval_width": 142.16932137394684
     },
     "avgDuration": {
       "mae": 4.121148889958244,
@@ -18,18 +18,19 @@
       "seasonal_naive_test_mae": 5.022421991084696,
       "mase_training_scale": 4.73569924075435,
       "interval_coverage": 0.9925705794947994,
-      "mean_interval_width": 73.64616845375096
+      "mean_interval_width": 72.48713196567104
     }
   },
-  "joint_interval_coverage": 0.9910846953937593,
+  "all_feature_interval_coverage": 0.9829123328380386,
+  "anomaly_feature": "visitors",
   "detector": {
     "config": {
-      "high_alpha": 0.005,
-      "point_threshold": 0.7790733030996055,
-      "low_alpha": 0.05,
-      "low_threshold": 0.357908362148851,
-      "persistence_window": 3,
-      "required_exceedances": 2,
+      "high_alpha": 0.01,
+      "point_threshold": 0.4667621037717913,
+      "low_alpha": null,
+      "low_threshold": null,
+      "persistence_window": null,
+      "required_exceedances": null,
       "selection_period": [
         "2025-07-09 00:00:00+00:00",
         "2025-07-10 00:00:00+00:00"
@@ -38,31 +39,31 @@
     },
     "calibration_selection": {
       "detector": {
-        "high_alpha": 0.005,
-        "point_threshold": 0.7790733030996055,
-        "low_alpha": 0.05,
-        "low_threshold": 0.357908362148851,
-        "persistence_window": 3,
-        "required_exceedances": 2
+        "high_alpha": 0.01,
+        "point_threshold": 0.4667621037717913,
+        "low_alpha": null,
+        "low_threshold": null,
+        "persistence_window": null,
+        "required_exceedances": null
       },
       "calibration_alarm_count": 2,
       "calibration_alarm_rate": 0.005434782608695652,
-      "macro_event_f1": 0.7344220403593266,
-      "macro_incremental_event_recall": 0.6338888888888888,
+      "macro_event_f1": 0.9097250642248349,
+      "macro_incremental_event_recall": 0.8671428571428571,
       "event_f1_by_type": {
-        "spike": 0.75125923390662,
-        "dip": 0.6980570313903648,
-        "level_shift": 0.8877299529015775,
-        "drift": 0.7715719201060071,
-        "stuck_at": 0.5634920634920635
+        "spike": 0.9363724973877506,
+        "dip": 0.909675363622732,
+        "level_shift": 0.9541492216854536,
+        "drift": 0.924069264069264,
+        "stuck_at": 0.8243589743589742
       }
     }
   },
   "counts": {
     "measured_test_points": 1346,
-    "forecast_candidates": 18,
+    "forecast_candidates": 15,
     "missing_measurements": 1333,
-    "forecast_events": 11,
+    "forecast_events": 13,
     "missing_events": 275
   },
   "real_labels": null,

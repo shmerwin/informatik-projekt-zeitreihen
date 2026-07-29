@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from src.forecaster.common import anomaly_scores, fit_calibrator
-from src.benchmark import _inject
+from src.benchmark import _inject, _injection_events
 from src.detector import detector_output
 from src.autoencoder.train import add_masking_noise, sequences
 from src.forecaster.evaluate import _evaluate_labels
@@ -70,7 +70,7 @@ class PreprocessingTests(unittest.TestCase):
 
 
 class CalibrationTests(unittest.TestCase):
-    def test_joint_threshold_controls_both_features_once(self):
+    def test_only_visitors_trigger_the_anomaly_score(self):
         prediction = np.zeros((200, 2, 3), dtype=float)
         prediction[..., 0] = -1
         prediction[..., 2] = 1
@@ -80,8 +80,13 @@ class CalibrationTests(unittest.TestCase):
         _, normal_score, _ = anomaly_scores(actual[:1], prediction[:1], calibrator)
         extreme = np.array([[10.0, 0.0]])
         _, extreme_score, _ = anomaly_scores(extreme, prediction[:1], calibrator)
+        duration_only = np.array([[0.0, 10.0]])
+        _, duration_score, _ = anomaly_scores(
+            duration_only, prediction[:1], calibrator
+        )
         self.assertLessEqual(normal_score[0], calibrator["threshold"])
         self.assertGreater(extreme_score[0], calibrator["threshold"])
+        self.assertEqual(duration_score[0], normal_score[0])
 
 
 class InjectionTests(unittest.TestCase):
@@ -100,6 +105,20 @@ class InjectionTests(unittest.TestCase):
         self.assertGreater(injected.loc[0, "visitors"], 10.0)
         self.assertEqual(len(labels), 1)
         self.assertGreater(realized[0], 0.9)
+
+    def test_all_injection_types_target_visitors(self):
+        times = pd.date_range("2025-07-10", periods=6, freq="1h", tz="UTC")
+        frame = pd.DataFrame({
+            "timestamp": times,
+            "name": "Sensor A",
+            "visitors": np.arange(10, 16),
+            "avgDuration": np.arange(5, 11),
+            "is_imputed": False,
+        })
+        for anomaly_type in ["spike", "dip", "level_shift", "drift", "stuck_at"]:
+            events = _injection_events(frame, anomaly_type, times[0], seed=42)
+            self.assertTrue(events)
+            self.assertEqual(events[0]["feature"], "visitors")
 
 
 class DetectorTests(unittest.TestCase):

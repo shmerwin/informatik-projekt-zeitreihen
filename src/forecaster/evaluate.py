@@ -22,8 +22,9 @@ from sklearn.metrics import (
 )
 
 from .common import (
-    DATA_PATH, FEATURES, MODEL_DIR, anomaly_scores, conformal_bounds,
-    inverse_values, load_data, make_windows, predict_quantiles, split_masks,
+    ANOMALY_FEATURE, DATA_PATH, FEATURES, MODEL_DIR, anomaly_scores,
+    conformal_bounds, inverse_values, load_data, make_windows, predict_quantiles,
+    split_masks,
 )
 from ..detector import detector_output, event_ids
 
@@ -110,7 +111,10 @@ def _event_table(candidates, event_column, alert_type):
         trigger_features=("trigger_features", lambda values: ",".join(
             dict.fromkeys(value for value in values if value)
         )),
-        max_joint_score=("joint_score", "max"),
+        reason=("reason", lambda values: " | ".join(
+            dict.fromkeys(value for value in values if value)
+        )),
+        max_anomaly_score=("anomaly_score", "max"),
         min_empirical_p_value=("p_value", "min"),
         max_context_imputed_fraction=("context_imputed_fraction", "max"),
     ).reset_index(drop=True)
@@ -172,13 +176,14 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
     upper = inverse_values(upper_scaled, test["sensor_id"], bundle["scaler"])
 
     feature_score = np.full((len(observed), len(FEATURES)), np.nan)
-    joint_score = np.full(len(observed), np.nan)
+    anomaly_score = np.full(len(observed), np.nan)
     p_value = np.full(len(observed), np.nan)
-    feature_score[observed], joint_score[observed], p_value[observed] = anomaly_scores(
+    scored = anomaly_scores(
         test["y_scaled"][observed], quantiles[observed], bundle["calibrator"]
     )
+    feature_score[observed], anomaly_score[observed], p_value[observed] = scored
     forecast_alarm, persistence_count, detector_score = detector_output(
-        joint_score, test["sensor"], test["time"], observed, bundle["detector"]
+        anomaly_score, test["sensor"], test["time"], observed, bundle["detector"]
     )
     missing_alarm = ~observed
 
@@ -186,7 +191,7 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
         "sensor": test["sensor"],
         "time": pd.to_datetime(test["time"], utc=True),
         "context_imputed_fraction": test["imputed_fraction"],
-        "joint_score": joint_score,
+        "anomaly_score": anomaly_score,
         "p_value": p_value,
         "persistence_count": persistence_count,
         "detector_score": detector_score,
@@ -204,15 +209,38 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
         candidates[f"score_{feature}"] = feature_score[:, i]
 
     trigger = []
+    reasons = []
     for row in range(len(candidates)):
-        trigger.append(",".join(
+        direct = [
             feature for i, feature in enumerate(FEATURES)
-            if observed[row]
+            if feature == ANOMALY_FEATURE and observed[row]
             and feature_score[row, i] > bundle["detector"]["point_threshold"]
-        ))
+        ]
+        trigger.append(",".join(direct))
         if forecast_alarm[row] and not trigger[-1]:
             trigger[-1] = "persistence"
+        if not observed[row]:
+            reasons.append("Messung fehlt")
+        elif direct:
+            details = []
+            for feature in direct:
+                i = FEATURES.index(feature)
+                actual = test["y_raw"][row, i]
+                boundary = lower[row, i] if actual < lower[row, i] else upper[row, i]
+                direction = "unter" if actual < lower[row, i] else "über"
+                details.append(
+                    f"{feature}: {actual:.3f} {direction} Intervallgrenze {boundary:.3f}"
+                )
+            reasons.append("; ".join(details))
+        elif forecast_alarm[row]:
+            reasons.append(
+                f"Persistenz: {int(persistence_count[row])} von "
+                f"{bundle['detector']['persistence_window']} Stunden auffällig"
+            )
+        else:
+            reasons.append("")
     candidates["trigger_features"] = trigger
+    candidates["reason"] = reasons
     candidates["alert_type"] = np.where(
         forecast_alarm, "forecast", np.where(missing_alarm, "missing", "")
     )
@@ -237,7 +265,8 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
     label_result = _evaluate_labels(labels_path, candidates) if labels_path else None
     metrics = {
         "forecast": forecast,
-        "joint_interval_coverage": joint_coverage,
+        "all_feature_interval_coverage": joint_coverage,
+        "anomaly_feature": ANOMALY_FEATURE,
         "detector": {
             "config": bundle["detector"],
             "calibration_selection": bundle["detector_selection"]["selected"],
@@ -275,7 +304,7 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
         f"{int(candidates['forecast_event_id'].nunique())} Ereignissen"
     )
     print(f"Fehlende Messungen: {int(missing_alarm.sum())}")
-    print(f"Gemeinsame Intervallabdeckung: {joint_coverage:.1%}")
+    print(f"Intervallabdeckung beider Prognosegrößen: {joint_coverage:.1%}")
     print("Gemeinsamer Modellvergleich: python -m src.benchmark")
     print(f"Ereignisdetails: {model_dir / 'anomaly_events.csv'}")
     return metrics
