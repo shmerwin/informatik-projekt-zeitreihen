@@ -17,6 +17,8 @@ PERSISTENCE_RULES = [(3, 2), (4, 3), (6, 3), (6, 4)]
 MAX_CALIBRATION_ALARM_RATE = 0.01
 CALIBRATION_SEEDS = [142, 243, 344]
 TEST_SEEDS = [445, 546, 647]
+NOISE_STRENGTHS = [0.05, 0.15]
+NOISE_SEED = 748
 
 
 def _empirical_threshold(scores, alpha):
@@ -69,9 +71,6 @@ def _prepare_injection_runs(
             strengths = [None] if anomaly_type == "stuck_at" else (
                 [0.5, 1.0, 2.0] if include_mild else [1.0, 2.0]
             )
-            duration = 1 if anomaly_type in {"spike", "dip"} else (
-                6 if anomaly_type == "stuck_at" else 4
-            )
             for strength in strengths:
                 injected_df, label_keys, realized = _inject(
                     df, events, anomaly_type, strength or 0, bundle["scaler"]
@@ -91,12 +90,65 @@ def _prepare_injection_runs(
                 runs.append({
                     "anomaly_type": anomaly_type,
                     "strength": "6_hours" if strength is None else str(strength),
-                    "event_count": len(label_keys) // duration,
+                    "event_count": len({sensor for sensor, _ in label_keys}),
                     "realized_strength": float(np.mean(realized)),
                     "score": score,
                     "labels": np.array([key in label_keys for key in base_keys]),
                 })
     return {"data": base, "score": base_score}, runs
+
+
+def _add_count_noise(df, strength, seed):
+    """Addiert mittelwerttreues, nichtnegatives Zaehlwertrauschen."""
+    noisy = df.copy()
+    time = pd.to_datetime(noisy["timestamp"], utc=True)
+    mask = (time >= CALIBRATION_END) & ~noisy["is_imputed"]
+    counts = np.rint(noisy.loc[mask, "visitors"]).astype("int64").clip(lower=0)
+    rng = np.random.default_rng(seed)
+    values = (
+        rng.binomial(counts, 1 - strength)
+        + rng.poisson(counts * strength)
+    )
+    noisy.loc[mask, "visitors"] = values
+    return noisy
+
+
+def _noise_robustness(df, base, model, bundle, score_function=None):
+    data, base_score = base["data"], base["score"]
+    base_keys = list(zip(base["data"]["sensor"], base["data"]["time"]))
+    observed = data["observed"]
+    base_alarm, _, _ = detector_output(
+        base_score, data["sensor"], data["time"], observed, bundle["detector"]
+    )
+    denominator = int(observed.sum())
+    if not denominator:
+        raise ValueError("Der Testblock enthaelt keine gemessenen Zielwerte")
+    result = {
+        "observed_points": denominator,
+        "base_alarm_count": int(base_alarm[observed].sum()),
+        "base_alarm_rate": float(base_alarm[observed].mean()),
+        "strengths": {},
+    }
+    for number, strength in enumerate(NOISE_STRENGTHS):
+        noisy_df = _add_count_noise(df, strength, NOISE_SEED + number)
+        noisy_data = make_windows(noisy_df, bundle["scaler"])
+        noisy, score = _period_scores(
+            noisy_data, model, bundle, CALIBRATION_END, None, score_function
+        )
+        if base_keys != list(zip(noisy["sensor"], noisy["time"])):
+            raise ValueError("Rauschen hat die Zeitachse veraendert")
+        noisy_alarm, _, _ = detector_output(
+            score, data["sensor"], data["time"], observed, bundle["detector"]
+        )
+        additional = noisy_alarm & ~base_alarm
+        result["strengths"][str(strength)] = {
+            "seed": NOISE_SEED + number,
+            "additional_false_alarm_count": int(additional[observed].sum()),
+            "additional_false_alarm_rate": float(
+                additional[observed].sum() / denominator
+            ),
+        }
+    return result
 
 
 def _detector_candidates(base):
@@ -146,7 +198,7 @@ def select_detector(df, base_data, model, bundle, score_function=None):
         for run in runs:
             event = _evaluate_injection_run(
                 run, base, detector, base_alarm, include_point_metrics=False
-            )["event"]
+            )["incremental_event"]
             by_type[run["anomaly_type"]].append(event)
         type_f1 = {
             name: float(np.mean([value["f1"] for value in values]))
@@ -195,14 +247,7 @@ def select_detector(df, base_data, model, bundle, score_function=None):
 
 
 def _reference_detector(bundle):
-    return {
-        "high_alpha": bundle["calibrator"]["alpha"],
-        "point_threshold": bundle["calibrator"]["threshold"],
-        "low_alpha": None,
-        "low_threshold": None,
-        "persistence_window": None,
-        "required_exceedances": None,
-    }
+    return {"point_threshold": bundle["calibrator"]["threshold"]}
 
 
 def injection_benchmark(df, base_data, model, bundle, score_function=None):
@@ -211,7 +256,14 @@ def injection_benchmark(df, base_data, model, bundle, score_function=None):
         df, base_data, model, bundle, CALIBRATION_END, None,
         TEST_SEEDS, include_mild=True, score_function=score_function,
     )
-    return (
-        _aggregate_injection_runs(runs, base, bundle["detector"]),
-        _aggregate_injection_runs(runs, base, _reference_detector(bundle)),
+    results = _aggregate_injection_runs(runs, base, bundle["detector"])
+    reference = _aggregate_injection_runs(
+        runs, base, _reference_detector(bundle)
     )
+    for anomaly_type in ANOMALY_TYPES:
+        for strength in reference[anomaly_type]["strengths"].values():
+            strength.pop("raw_score_ranking")
+    results["noise_robustness"] = _noise_robustness(
+        df, base, model, bundle, score_function
+    )
+    return results, reference

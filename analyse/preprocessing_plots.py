@@ -87,8 +87,8 @@ achsen[1].legend(legende,
 speichern(fig, "preproc_luecken_heatmap.png")
 
 
-# Abbildung 2: typische und besonders kurze Sensorreihe
-beispiele = [sensoren[len(sensoren) // 2], aktiv.sum().idxmin()]
+# Abbildung 2: typische und am stärksten ergänzte Sensorreihe
+beispiele = [sensoren[len(sensoren) // 2], anteil.idxmax()]
 fig, achsen = plt.subplots(2, 1, figsize=(13, 7), sharex=True)
 for ax, s in zip(achsen, beispiele):
     sensor = clean[clean["name"] == s].set_index("timestamp")
@@ -110,10 +110,10 @@ laengen = pd.concat(
     [(~fehlt[s]).cumsum()[fehlt[s]].value_counts() for s in sensoren])
 
 # in Gruppen einteilen, damit jeder Balken gleich breit ist
-# (die aktiven Lücken reichen von 1 h bis 18 h)
-gruppen = pd.cut(laengen, bins=[0, 1, 2, 6, 12, 24],
+# Lange Endausfälle bleiben sichtbar statt aus der Grafik herauszufallen.
+gruppen = pd.cut(laengen, bins=[0, 1, 2, 6, 12, 24, np.inf],
                  labels=["1 h", "2 h", "3-6 h", "7-12 h",
-                          "13-24 h"])
+                         "13-24 h", ">24 h"])
 anzahl = gruppen.value_counts().sort_index()
 
 fig, ax = plt.subplots(figsize=(9, 4.5))

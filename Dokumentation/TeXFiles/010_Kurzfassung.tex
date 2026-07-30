@@ -13,14 +13,18 @@ interne Lücken ohne Informationen aus dem späteren Testzeitraum. Imputierte
 Werte bleiben als gekennzeichneter Kontext erhalten, werden aber nicht als
 Lern- oder Bewertungsziel verwendet.
 
-Das Hauptmodell ist ein Quantil-LSTM mit 22.798 Parametern, das aus den
-vorhergehenden 24 Stunden die nächste Stunde prognostiziert. Ein kompakter
-LSTM-Autoencoder mit 3.426 Parametern bildet eine getrennte Vergleichsmethode.
-Bei starken künstlichen Anomalien erreicht der Forecaster einen mittleren
-Punkt-F1 von 0{,}783 und einen Ereignis-F1 von 0{,}855. Der Autoencoder
-erreicht unter denselben Bedingungen 0{,}706 beziehungsweise 0{,}777. Im
-unveränderten Testabschnitt markiert der Forecaster 15 Stunden in 13
-Ereignissen. Diese Werte zeigen die
+Das Hauptmodell ist ein Quantil-LSTM mit 21.366 Parametern, das aus den
+vorhergehenden 24 Stunden die nächste Stunde prognostiziert. Ein
+LSTM-Autoencoder mit 12.994 Parametern und ein parameterfreier robuster
+$t-24$-Detektor bilden getrennte Vergleichsmethoden. Bei starken künstlichen
+Anomalien erreicht der Forecaster einen mittleren Punkt-F1 von 0{,}724 und
+einen Ereignis-F1 von 0{,}866. Der Autoencoder erreicht 0{,}589
+beziehungsweise 0{,}706, die saisonale Methode 0{,}504 beziehungsweise
+0{,}578. Die korrigierte Ereignisauswertung ordnet jedem injizierten Ereignis
+höchstens ein Alarmereignis zu. Im unveränderten Testabschnitt markiert der
+Forecaster 18 Stunden in 11 Ereignissen; 1.534 fehlende Messungen werden
+getrennt als Datenqualitätsprobleme ausgewiesen. Diese Werte zeigen die
 technische Erkennungsfähigkeit für definierte Veränderungen; die nur
-zweiwöchige Datenbasis und fehlende vollständige reale Markierungen begrenzen
-die Übertragbarkeit auf unbekannte reale Anomalien.
+zweiwöchige Datenbasis, überwiegend imputierten Kalibrierungskontexte und
+fehlende vollständige reale Markierungen begrenzen die Übertragbarkeit auf
+unbekannte reale Anomalien.

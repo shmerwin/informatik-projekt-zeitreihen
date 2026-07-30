@@ -11,7 +11,7 @@ Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
 
 \begin{table}[htb]
   \centering
-  \caption{Chronologische Teilmengen beider Modelle. Alle Grenzen sind in UTC
+  \caption{Chronologische Teilmengen aller Verfahren. Alle Grenzen sind in UTC
     angegeben. Eigene Darstellung.}
   \label{tab:forecaster_splits}
   \begin{tabular}{lll r}
@@ -26,12 +26,16 @@ Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
   \end{tabular}
 \end{table}
 
-Die Forecaster-Architektur und ihre 21 Epochen sind vor dem endgültigen Lauf
-festgelegt. Für diesen Lauf werden Training und Tuning gemeinsam zum Anpassen
-der Gewichte verwendet. Beim Autoencoder dient der Tuningabschnitt dem Early
-Stopping. Anschließend bestimmt der Kalibrierungsabschnitt für beide Modelle
-die Schwellen und gegebenenfalls eine Persistenzregel. Der Testabschnitt wird für keine dieser
-Entscheidungen verwendet.
+Für Forecaster und Autoencoder werden jeweils drei vorab festgelegte kleine
+Architektur- und Lernratenkombinationen verglichen. Jeder Kandidat lernt nur
+auf dem Trainingsabschnitt; der Tuning-Loss bestimmt mit höchstens 20 Epochen
+und Early Stopping die Kombination und Epochenzahl. Das ausgewählte Modell
+wird anschließend für genau diese Epochen auf Training und Tuning gemeinsam,
+also jeweils auf denselben 4.401 Fenstern mit identischen Zielzeitpunkten, neu
+trainiert. Erst danach
+bestimmt der Kalibrierungsabschnitt die Schwellen und gegebenenfalls eine
+Persistenzregel. Der Testabschnitt wird für keine dieser Entscheidungen
+verwendet.
 
 \section{Bewertung der Prognosegüte}
 
@@ -43,12 +47,14 @@ Koehler berichtet \cite{hyndman2006accuracy}:
  \frac{H^{-1}\sum_{h=1}^{H}|y_{T+h}-\hat{y}_{T+h}|}
  {(T-24)^{-1}\sum_{t=25}^{T}|y_t-y_{t-24}|}.
 \end{equation}
-Der Nenner wird ausschließlich aus gemessenen Trainingszielen berechnet. Damit
-ist MASE von dem ergänzend angegebenen Verhältnis
+Der Nenner wird ausschließlich aus Paaren berechnet, bei denen sowohl das
+Trainingsziel als auch sein $t-24$-Vergleichswert gemessen wurden. Damit ist
+MASE von dem ergänzend angegebenen Verhältnis
 $\operatorname{MAE}_{\mathrm{Modell,Test}}/
 \operatorname{MAE}_{t-24,\mathrm{Test}}$ zu unterscheiden. Werte unter eins
 bedeuten jeweils eine Verbesserung gegenüber der zugehörigen Skalierung
-beziehungsweise Testbaseline.
+beziehungsweise Testbaseline. Auch der direkte Testvergleich verwendet nur
+die 667 Testpunkte mit gemessenem aktuellem Wert und gemessenem $t-24$-Wert.
 
 Für die empirisch kalibrierten Intervalle werden die marginale Abdeckung je
 Zielgröße, die gemeinsame Abdeckung beider Zielgrößen und die mittlere
@@ -56,6 +62,17 @@ Intervallbreite ausgewiesen. Eine hohe Abdeckung allein ist nicht hinreichend,
 da sie durch sehr breite und damit wenig trennscharfe Intervalle erreichbar
 wäre. Diese Werte beschreiben die Prognosen beider Größen. Für die
 Alarmentscheidung wird ausschließlich der kalibrierte Besucher-Score verwendet.
+
+Als einfache robuste Vergleichsmethode wird zusätzlich die Abweichung vom
+gemessenen Wert derselben Stunde des Vortags verwendet. Nach der sensorweisen
+robusten Skalierung werden die Residuen durch Median und Interquartilsabstand
+der gemessenen Trainingspaare standardisiert;
+Schwelle und Persistenzregel werden anschließend genauso wie bei den beiden
+neuronalen Modellen kalibriert. Der Detektor besitzt keine trainierbaren
+Parameter und kann nur Punkte bewerten, für die der aktuelle Wert und der
+$t-24$-Wert tatsächlich gemessen wurden. Fehlt der Vergleichswert, enthält
+sich die Baseline eines binären Alarms; ein dort injizierter Punkt bleibt
+damit gegebenenfalls ein False Negative.
 
 \section[Anomalieinjektion]{Synthetische Anomalieinjektion}
 
@@ -66,8 +83,8 @@ aber keine Evaluation realer Ereignisse \cite{schmidl2022evaluation}. Die
 Anomalien werden ausschließlich in ursprünglich gemessene Werte injiziert,
 bevor Zeitfenster erzeugt und Prognosen berechnet werden. Damit beeinflussen
 mehrstündige Ereignisse den nachfolgenden Modellkontext wie reale Messwerte.
-Forecaster und Autoencoder erhalten dieselben ausgewählten Sensoren,
-Zeitpunkte, Richtungen und Stärken. Verändert wird ausschließlich
+Alle drei Detektoren erhalten dieselben ausgewählten Sensoren, Zeitpunkte,
+Richtungen und Stärken. Verändert wird ausschließlich
 \texttt{visitors}, weil die gesuchte Anomalie eine Abweichung der
 Passantenfrequenz ist.
 
@@ -79,7 +96,10 @@ Stärken 0{,}5, 1{,}0 und 2{,}0 beziehen sich auf sensor- und
 besucherspezifische robuste $\log(1+x)$-IQR-Einheiten. Stuck-at friert die
 Passantenzahl auf die letzte vorherige Messung ein; Ereignisse mit weniger als
 0{,}5 realisierter IQR-Abweichung werden verworfen, weil sie keine belastbare
-künstliche Veränderung darstellen.
+künstliche Veränderung darstellen. Ein Punkt erhält erst nach Rundung und
+Begrenzung auf nichtnegative Zählwerte ein Label, wenn sich sein Wert
+tatsächlich geändert hat. Wirkungslos gewordene Dips und Stuck-at-Ereignisse
+werden dadurch nicht fälschlich als positive Beispiele bewertet.
 
 Die Auswahl der Alarmregel verwendet drei feste Zufallsstartwerte im
 Kalibrierungsabschnitt und nur die Stärken 1{,}0 und 2{,}0. Der endgültige
@@ -92,19 +112,27 @@ nicht nachträglich als Erfolg der Injektion gewertet.
 
 \section{Punkt- und Ereignismetriken}
 
-Auf Punktebene werden Konfusionsmatrix, Precision, Recall, F1, ROC-AUC,
-PR-AUC und zeitliche Intersection over Union berechnet. Precision und Recall
+Auf Punktebene werden aus den binären zusätzlichen Alarmen Konfusionsmatrix,
+Precision, Recall, F1 und zeitliche Intersection over Union berechnet. Die
+Konfusionswerte werden zunächst über alle Läufe summiert und erst danach in
+Kennzahlen umgerechnet. ROC-AUC und Average Precision (AP) bewerten davon
+getrennt die kontinuierlichen Rohscores; eine binäre Alarmentscheidung wird
+nicht als Rankingkurve ausgegeben. Für eine gemeinsame Testpopulation werden
+fehlende Baseline-Scores bei den Rankingmetriken unterhalb aller endlichen
+Scores eingeordnet und ihre Anzahl separat gespeichert. Precision und Recall
 sind durch
 \begin{equation}
  \operatorname{Precision}=\frac{TP}{TP+FP}, \qquad
  \operatorname{Recall}=\frac{TP}{TP+FN}
 \end{equation}
-definiert. Die PR-AUC ist wegen des starken Ungleichgewichts zwischen
+definiert. AP ist wegen des starken Ungleichgewichts zwischen
 Normal- und Anomaliepunkten besonders informativ; ROC-AUC wird ergänzend
 ausgegeben.
 
 Zusammenhängende stündliche Alarme desselben Sensors werden zusätzlich als
-Ereignisse gruppiert. Berichtet werden Ereignis-Precision,
+Ereignisse gruppiert. Ein vorhergesagtes Ereignis darf höchstens einem
+injizierten Ereignis zugeordnet werden; Fragmentierung kann dadurch den
+Ereignis-F1 nicht künstlich erhöhen. Berichtet werden Ereignis-Precision,
 Ereignis-Recall, Ereignis-F1, mittlere zeitliche IoU und die Verzögerung bis
 zum ersten überlappenden Alarm. Diese Existenz- und Überlappungsdefinition ist
 eine bewusst einfache ereignisorientierte Auswertung und nicht das vollständige
@@ -112,6 +140,13 @@ Metriksystem von Tatbul et al. \cite{tatbul2018precision}. Die ursprünglichen
 Punktvorhersagen werden nicht verändert. Insbesondere wird kein Point
 Adjustment verwendet, da es die gemessene Leistung stark überschätzen kann
 \cite{kim2022rigorous}.
+
+Ergänzend prüft ein reproduzierbarer Rauschtest die Alarmstabilität. Für
+gemessene Besucherwerte wird bei 5~\% und 15~\% Stärke mittelwerttreues,
+nichtnegatives Zählwertrauschen aus binomialem Ausdünnen und einer
+Poisson-Ersetzung erzeugt. Berichtet wird der Anteil zusätzlicher Alarme
+gegenüber dem unveränderten Testlauf. Die vier vorhandenen Testtage reichen
+nicht für eine belastbare Rolling-Origin-Neuschätzung.
 
 \section{Reproduzierbarkeit}
 
@@ -124,21 +159,24 @@ folgenden Befehlen ausgeführt:
 py -3.12 -m src.preprocessing
 py -3.12 -m src.forecaster.train
 py -3.12 -m src.autoencoder.train
+py -3.12 -m src.seasonal_baseline
 py -3.12 -m src.benchmark
 py -3.12 -m src.forecaster.evaluate
 \end{verbatim}
 Bei unveränderten Rohdaten werden nur die gewünschten Modelle neu trainiert.
 Für die erneute Auswertung des gespeicherten Forecasters reicht
 \texttt{py -3.12 -m src.forecaster.evaluate}. Der davon getrennte synthetische
-Vergleich beider Modelle wird mit \texttt{py -3.12 -m src.benchmark}
+Vergleich aller drei Verfahren wird mit \texttt{py -3.12 -m src.benchmark}
 ausgeführt. Modellparameter,
 Splits, Skalierung, Kalibrierung und Detektorregel werden in
 \texttt{model\_bundle.json} gespeichert. Die Auswertung erzeugt unter anderem
 \texttt{evaluation\_metrics.json}, \texttt{anomalies.csv},
-\texttt{anomaly\_events.csv} und die Abbildung
+\texttt{anomaly\_events.csv}, \texttt{labels\_template.csv},
+\texttt{event\_review\_template.csv} und die Abbildung
 \texttt{anomalies\_example.png}. Der gemeinsame Injektionstest schreibt die
-Detailergebnisse je Modell und fasst beide zusätzlich in
-\texttt{saved\_models/benchmark/model\_comparison.csv} zusammen.
+Detailergebnisse je Modell und fasst alle drei Verfahren zusätzlich in
+\texttt{saved\_models/benchmark/model\_comparison.csv} sowie in der gemeinsamen
+ROC-/PR-Abbildung zusammen.
 Der zugehörige Code ist nach Injektionen, Metriken, Auswertung und der kurzen
 Aufrufsteuerung in getrennte Module gegliedert.
 

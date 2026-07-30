@@ -4,7 +4,6 @@ Aufruf aus dem Projektordner: ``python -m src.autoencoder.train``
 """
 
 import json
-from pathlib import Path
 
 import matplotlib
 
@@ -15,18 +14,21 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 
 from ..forecaster.common import (
-    ALPHA, ANOMALY_FEATURE, CALIBRATION_END, DATA_PATH, FEATURES, SEED, TRAIN_END,
-    TUNE_END, WINDOW_SIZE, fit_scaler, load_data, make_windows, set_seed,
-    split_masks,
+    ALPHA, ANOMALY_FEATURE, DATA_PATH, FEATURES, ROOT, SEED, WINDOW_SIZE,
+    evaluation_metadata, fit_scaler, load_data, make_windows,
+    select_by_validation_loss, set_seed, split_masks,
 )
 
 
-ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "saved_models" / "autoencoder"
-EPOCHS = 100
-BATCH_SIZE = 128
-MAX_MASK_HOURS = 4
-LSTM_UNITS = 16
+CANDIDATES = [
+    {"lstm_units": 8, "lr": 1e-3, "max_mask_hours": 2},
+    {"lstm_units": 16, "lr": 1e-3, "max_mask_hours": 4},
+    {"lstm_units": 32, "lr": 5e-4, "max_mask_hours": 4},
+]
+MAX_EPOCHS = 20
+PATIENCE = 3
+BATCH_SIZE = 512
 
 
 def sequences(data):
@@ -38,12 +40,12 @@ def sequences(data):
     return np.concatenate([data["history"][:, 1:, :3], current], axis=1)
 
 
-def add_masking_noise(x, seed=SEED):
+def add_masking_noise(x, max_hours=4, seed=SEED):
     """Verdeckt einen gemessenen Block von höchstens vier Stunden."""
     noisy = x.copy()
     rng = np.random.default_rng(seed)
     for number, window in enumerate(noisy):
-        length = int(rng.integers(1, MAX_MASK_HOURS + 1))
+        length = int(rng.integers(1, max_hours + 1))
         starts = [
             i for i in range(WINDOW_SIZE - length + 1)
             if x[number, i:i + length, 2].all()
@@ -55,16 +57,19 @@ def add_masking_noise(x, seed=SEED):
     return noisy
 
 
-def build_model():
+def build_model(params):
     """Bewusst kompakter Encoder-Decoder nach dem klassischen LSTM-AE-Prinzip."""
     model = models.Sequential([
         layers.Input((WINDOW_SIZE, 3)),
-        layers.LSTM(LSTM_UNITS),
+        layers.LSTM(params["lstm_units"]),
         layers.RepeatVector(WINDOW_SIZE),
-        layers.LSTM(LSTM_UNITS, return_sequences=True),
+        layers.LSTM(params["lstm_units"], return_sequences=True),
         layers.Dense(len(FEATURES)),
     ])
-    model.compile(optimizer="adam", loss=tf.keras.losses.Huber())
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(params["lr"]),
+        loss=tf.keras.losses.Huber(),
+    )
     return model
 
 
@@ -86,7 +91,6 @@ def reconstruction_scores(data, model, bundle):
 
 
 def train():
-    set_seed()
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     df = load_data(DATA_PATH)
@@ -97,21 +101,43 @@ def train():
     y = x[:, :, :2]
     weights = x[:, :, 2]
 
-    model = build_model()
+    def run_candidate(params):
+        tf.keras.backend.clear_session()
+        set_seed()
+        candidate = build_model(params)
+        history = candidate.fit(
+            add_masking_noise(
+                x[masks["train"]], params["max_mask_hours"]
+            ),
+            y[masks["train"]],
+            sample_weight=weights[masks["train"]],
+            validation_data=(
+                x[masks["tune"]], y[masks["tune"]], weights[masks["tune"]]
+            ),
+            epochs=MAX_EPOCHS,
+            batch_size=BATCH_SIZE,
+            verbose=0,
+            callbacks=[tf.keras.callbacks.EarlyStopping(
+                monitor="val_loss", patience=PATIENCE, restore_best_weights=True
+            )],
+        )
+        return history, candidate.count_params()
+
+    selected, trials = select_by_validation_loss(CANDIDATES, run_candidate)
+    training = masks["train"] | masks["tune"]
+    tf.keras.backend.clear_session()
+    set_seed()
+    model = build_model(selected["params"])
     model.summary()
     history = model.fit(
-        add_masking_noise(x[masks["train"]]),
-        y[masks["train"]],
-        sample_weight=weights[masks["train"]],
-        validation_data=(
-            x[masks["tune"]], y[masks["tune"]], weights[masks["tune"]]
+        add_masking_noise(
+            x[training], selected["params"]["max_mask_hours"]
         ),
-        epochs=EPOCHS,
+        y[training],
+        sample_weight=weights[training],
+        epochs=selected["best_epoch"],
         batch_size=BATCH_SIZE,
         verbose=2,
-        callbacks=[tf.keras.callbacks.EarlyStopping(
-            patience=10, restore_best_weights=True
-        )],
     )
 
     calibration_errors = reconstruction_errors(model, {
@@ -132,12 +158,20 @@ def train():
         "features": FEATURES,
         "anomaly_feature": ANOMALY_FEATURE,
         "window_size": WINDOW_SIZE,
-        "architecture": {"lstm_units": LSTM_UNITS},
+        "architecture": selected["params"],
+        "model_search": {
+            "objective": "minimum tune val_loss",
+            "max_epochs": MAX_EPOCHS,
+            "early_stopping_patience": PATIENCE,
+            "trials": trials,
+            "selected": selected,
+        },
         "training": {
-            "max_epochs": EPOCHS,
+            "max_epochs": MAX_EPOCHS,
             "epochs_run": len(history.history["loss"]),
+            "sample_count": int(training.sum()),
             "batch_size": BATCH_SIZE,
-            "max_mask_hours": MAX_MASK_HOURS,
+            "max_mask_hours": selected["params"]["max_mask_hours"],
         },
         "scaler": scaler,
         "error_scale": error_scale.tolist(),
@@ -146,22 +180,14 @@ def train():
             "target_feature": ANOMALY_FEATURE,
             "threshold": float(np.sort(calibration_scores)[rank - 1]),
         },
-        "splits": {
-            "train_end": str(TRAIN_END),
-            "tune_end": str(TUNE_END),
-            "calibration_end": str(CALIBRATION_END),
-        },
         "parameters": model.count_params(),
-        "sample_counts": {
-            name: int(mask.sum()) for name, mask in masks.items()
-        },
+        **evaluation_metadata(data, masks),
     }
     model.save(MODEL_DIR / bundle["model"])
     with open(MODEL_DIR / "model_bundle.json", "w", encoding="utf-8") as file:
         json.dump(bundle, file, ensure_ascii=False, indent=2, allow_nan=False)
 
     plt.plot(history.history["loss"], label="Training")
-    plt.plot(history.history["val_loss"], label="Validierung")
     plt.xlabel("Epoche")
     plt.ylabel("Huber-Fehler")
     plt.legend()
