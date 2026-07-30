@@ -4,14 +4,69 @@
     "visitors",
     "avgDuration"
   ],
+  "anomaly_feature": "visitors",
   "window_size": 24,
   "architecture": {
-    "lstm_units": 16
+    "lstm_units": 32,
+    "lr": 0.0005,
+    "max_mask_hours": 4
+  },
+  "model_search": {
+    "objective": "minimum tune val_loss",
+    "max_epochs": 20,
+    "early_stopping_patience": 3,
+    "trials": [
+      {
+        "params": {
+          "lstm_units": 8,
+          "lr": 0.001,
+          "max_mask_hours": 2
+        },
+        "best_epoch": 20,
+        "epochs_run": 20,
+        "val_loss": 0.2697173058986664,
+        "parameters": 946
+      },
+      {
+        "params": {
+          "lstm_units": 16,
+          "lr": 0.001,
+          "max_mask_hours": 4
+        },
+        "best_epoch": 20,
+        "epochs_run": 20,
+        "val_loss": 0.21762776374816895,
+        "parameters": 3426
+      },
+      {
+        "params": {
+          "lstm_units": 32,
+          "lr": 0.0005,
+          "max_mask_hours": 4
+        },
+        "best_epoch": 20,
+        "epochs_run": 20,
+        "val_loss": 0.21224036812782288,
+        "parameters": 12994
+      }
+    ],
+    "selected": {
+      "params": {
+        "lstm_units": 32,
+        "lr": 0.0005,
+        "max_mask_hours": 4
+      },
+      "best_epoch": 20,
+      "epochs_run": 20,
+      "val_loss": 0.21224036812782288,
+      "parameters": 12994
+    }
   },
   "training": {
-    "max_epochs": 100,
-    "epochs_run": 100,
-    "batch_size": 128,
+    "max_epochs": 20,
+    "epochs_run": 20,
+    "sample_count": 4401,
+    "batch_size": 512,
     "max_mask_hours": 4
   },
   "scaler": {
@@ -275,35 +330,43 @@
     ]
   },
   "error_scale": [
-    0.22796115279197693,
-    0.4467727243900299
+    0.29720696806907654,
+    0.5779320001602173
   ],
   "calibrator": {
     "alpha": 0.01,
     "target_feature": "visitors",
-    "threshold": 3.007490634918213
+    "threshold": 3.9478559494018555
   },
+  "calibration_context_quality": {
+    "sample_count": 368,
+    "mean_imputed_fraction": 0.6753849637681159,
+    "median_imputed_fraction": 0.7083333333333333,
+    "more_than_half_imputed_count": 336,
+    "more_than_half_imputed_fraction": 0.9130434782608695,
+    "warning": "Mehr als die Hälfte der Kalibrierungskontexte besteht überwiegend aus imputierten Stunden; die Schwelle ist nur eingeschränkt belastbar."
+  },
+  "evaluation_limitation": "Kurzer chronologischer Holdout ab 2025-07-10; keine räumlich oder zeitlich unabhängige externe Bestätigung.",
   "splits": {
     "train_end": "2025-07-08 00:00:00+00:00",
     "tune_end": "2025-07-09 00:00:00+00:00",
     "calibration_end": "2025-07-10 00:00:00+00:00"
   },
-  "parameters": 3426,
+  "parameters": 12994,
   "sample_counts": {
     "train": 4083,
     "tune": 318,
     "calibration": 368,
     "test": 1346,
-    "test_all": 2679
+    "test_all": 2688
   },
-  "anomaly_feature": "visitors",
   "detector": {
     "high_alpha": 0.01,
-    "point_threshold": 3.0074906783236264,
-    "low_alpha": null,
-    "low_threshold": null,
-    "persistence_window": null,
-    "required_exceedances": null,
+    "point_threshold": 3.947855982751157,
+    "low_alpha": 0.05,
+    "low_threshold": 1.9009360738125651,
+    "persistence_window": 4,
+    "required_exceedances": 3,
     "selection_period": [
       "2025-07-09 00:00:00+00:00",
       "2025-07-10 00:00:00+00:00"
@@ -324,29 +387,29 @@
     "selected": {
       "detector": {
         "high_alpha": 0.01,
-        "point_threshold": 3.0074906783236264,
-        "low_alpha": null,
-        "low_threshold": null,
-        "persistence_window": null,
-        "required_exceedances": null
+        "point_threshold": 3.947855982751157,
+        "low_alpha": 0.05,
+        "low_threshold": 1.9009360738125651,
+        "persistence_window": 4,
+        "required_exceedances": 3
       },
       "calibration_alarm_count": 2,
       "calibration_alarm_rate": 0.005434782608695652,
-      "macro_event_f1": 0.8024900197068694,
-      "macro_incremental_event_recall": 0.7688095238095238,
+      "macro_event_f1": 0.5062897763859339,
+      "macro_incremental_event_recall": 0.4697089947089947,
       "event_f1_by_type": {
-        "spike": 0.9145643029789371,
-        "dip": 0.846126789095503,
-        "level_shift": 0.8339037830265901,
-        "drift": 0.5934962490743424,
-        "stuck_at": 0.8243589743589742
+        "spike": 0.5111688311688312,
+        "dip": 0.5929835348773657,
+        "level_shift": 0.8021043771043771,
+        "drift": 0.5418588054457619,
+        "stuck_at": 0.08333333333333333
       }
     },
     "feasible_candidates": [
       {
         "detector": {
           "high_alpha": 0.005,
-          "point_threshold": 5.190289010207335,
+          "point_threshold": 6.9624494528062915,
           "low_alpha": null,
           "low_threshold": null,
           "persistence_window": null,
@@ -354,83 +417,104 @@
         },
         "calibration_alarm_count": 0,
         "calibration_alarm_rate": 0.0,
-        "macro_event_f1": 0.39904084508639703,
-        "macro_incremental_event_recall": 0.35222222222222227,
+        "macro_event_f1": 0.03158908724126115,
+        "macro_incremental_event_recall": 0.017592592592592594,
         "event_f1_by_type": {
-          "spike": 0.5881809729342798,
-          "dip": 0.4444444444444445,
-          "level_shift": 0.5202711157455683,
-          "drift": 0.3470695970695971,
-          "stuck_at": 0.09523809523809523
+          "spike": 0.059288537549407126,
+          "dip": 0.0492063492063492,
+          "level_shift": 0.04945054945054945,
+          "drift": 0.0,
+          "stuck_at": 0.0
         }
       },
       {
         "detector": {
           "high_alpha": 0.005,
-          "point_threshold": 5.190289010207335,
+          "point_threshold": 6.9624494528062915,
           "low_alpha": 0.05,
-          "low_threshold": 2.0184022788542504,
+          "low_threshold": 1.9009360738125651,
           "persistence_window": 4,
           "required_exceedances": 3
         },
-        "calibration_alarm_count": 3,
-        "calibration_alarm_rate": 0.008152173913043478,
-        "macro_event_f1": 0.5910455835604154,
-        "macro_incremental_event_recall": 0.5274603174603174,
+        "calibration_alarm_count": 0,
+        "calibration_alarm_rate": 0.0,
+        "macro_event_f1": 0.30355926065346356,
+        "macro_incremental_event_recall": 0.26044973544973543,
         "event_f1_by_type": {
-          "spike": 0.5841323899383285,
-          "dip": 0.4309884046726152,
-          "level_shift": 0.8437891818731921,
-          "drift": 0.5629846079846079,
-          "stuck_at": 0.5333333333333333
+          "spike": 0.053505099302200765,
+          "dip": 0.048484848484848485,
+          "level_shift": 0.8317460317460318,
+          "drift": 0.5007269904009034,
+          "stuck_at": 0.08333333333333333
         }
       },
       {
         "detector": {
           "high_alpha": 0.005,
-          "point_threshold": 5.190289010207335,
+          "point_threshold": 6.9624494528062915,
           "low_alpha": 0.05,
-          "low_threshold": 2.0184022788542504,
+          "low_threshold": 1.9009360738125651,
+          "persistence_window": 6,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 0,
+        "calibration_alarm_rate": 0.0,
+        "macro_event_f1": 0.17154801724169516,
+        "macro_incremental_event_recall": 0.1437830687830688,
+        "event_f1_by_type": {
+          "spike": 0.051875593542260214,
+          "dip": 0.048484848484848485,
+          "level_shift": 0.44371633959734647,
+          "drift": 0.23032997125068735,
+          "stuck_at": 0.08333333333333333
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.005,
+          "point_threshold": 6.9624494528062915,
+          "low_alpha": 0.05,
+          "low_threshold": 1.9009360738125651,
           "persistence_window": 6,
           "required_exceedances": 4
         },
         "calibration_alarm_count": 0,
         "calibration_alarm_rate": 0.0,
-        "macro_event_f1": 0.45422967566386285,
-        "macro_incremental_event_recall": 0.4161904761904762,
+        "macro_event_f1": 0.08994401352524924,
+        "macro_incremental_event_recall": 0.07314814814814816,
         "event_f1_by_type": {
-          "spike": 0.5881809729342798,
-          "dip": 0.44851618535829063,
-          "level_shift": 0.6072730895152804,
-          "drift": 0.3216225749559083,
-          "stuck_at": 0.3055555555555555
+          "spike": 0.05802591128678086,
+          "dip": 0.0492063492063492,
+          "level_shift": 0.32582114046644944,
+          "drift": 0.016666666666666666,
+          "stuck_at": 0.0
         }
       },
       {
         "detector": {
           "high_alpha": 0.005,
-          "point_threshold": 5.190289010207335,
+          "point_threshold": 6.9624494528062915,
           "low_alpha": 0.1,
-          "low_threshold": 1.5461148602052501,
+          "low_threshold": 1.4576244877093874,
           "persistence_window": 6,
           "required_exceedances": 4
         },
         "calibration_alarm_count": 3,
         "calibration_alarm_rate": 0.008152173913043478,
-        "macro_event_f1": 0.533190257826238,
-        "macro_incremental_event_recall": 0.49079365079365084,
+        "macro_event_f1": 0.2038802624332754,
+        "macro_incremental_event_recall": 0.1617195767195767,
         "event_f1_by_type": {
-          "spike": 0.5962096846243188,
-          "dip": 0.4122381490802544,
-          "level_shift": 0.6133026126963622,
-          "drift": 0.3870579855873974,
-          "stuck_at": 0.6571428571428571
+          "spike": 0.052901234567901245,
+          "dip": 0.048484848484848485,
+          "level_shift": 0.40828438025234365,
+          "drift": 0.11925465838509315,
+          "stuck_at": 0.3904761904761905
         }
       },
       {
         "detector": {
           "high_alpha": 0.01,
-          "point_threshold": 3.0074906783236264,
+          "point_threshold": 3.947855982751157,
           "low_alpha": null,
           "low_threshold": null,
           "persistence_window": null,
@@ -438,35 +522,77 @@
         },
         "calibration_alarm_count": 2,
         "calibration_alarm_rate": 0.005434782608695652,
-        "macro_event_f1": 0.8024900197068694,
-        "macro_incremental_event_recall": 0.7688095238095238,
+        "macro_event_f1": 0.3911636838107426,
+        "macro_incremental_event_recall": 0.36574074074074076,
         "event_f1_by_type": {
-          "spike": 0.9145643029789371,
-          "dip": 0.846126789095503,
-          "level_shift": 0.8339037830265901,
-          "drift": 0.5934962490743424,
-          "stuck_at": 0.8243589743589742
+          "spike": 0.5313020313020312,
+          "dip": 0.6049701932054874,
+          "level_shift": 0.47512210012210004,
+          "drift": 0.3444240944240944,
+          "stuck_at": 0.0
         }
       },
       {
         "detector": {
           "high_alpha": 0.01,
-          "point_threshold": 3.0074906783236264,
+          "point_threshold": 3.947855982751157,
           "low_alpha": 0.05,
-          "low_threshold": 2.0184022788542504,
+          "low_threshold": 1.9009360738125651,
+          "persistence_window": 4,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.5062897763859339,
+        "macro_incremental_event_recall": 0.4697089947089947,
+        "event_f1_by_type": {
+          "spike": 0.5111688311688312,
+          "dip": 0.5929835348773657,
+          "level_shift": 0.8021043771043771,
+          "drift": 0.5418588054457619,
+          "stuck_at": 0.08333333333333333
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.01,
+          "point_threshold": 3.947855982751157,
+          "low_alpha": 0.05,
+          "low_threshold": 1.9009360738125651,
+          "persistence_window": 6,
+          "required_exceedances": 3
+        },
+        "calibration_alarm_count": 2,
+        "calibration_alarm_rate": 0.005434782608695652,
+        "macro_event_f1": 0.434364765750659,
+        "macro_incremental_event_recall": 0.42526455026455023,
+        "event_f1_by_type": {
+          "spike": 0.5037860330883587,
+          "dip": 0.5929835348773657,
+          "level_shift": 0.5952876874915856,
+          "drift": 0.39643323996265173,
+          "stuck_at": 0.08333333333333333
+        }
+      },
+      {
+        "detector": {
+          "high_alpha": 0.01,
+          "point_threshold": 3.947855982751157,
+          "low_alpha": 0.05,
+          "low_threshold": 1.9009360738125651,
           "persistence_window": 6,
           "required_exceedances": 4
         },
         "calibration_alarm_count": 2,
         "calibration_alarm_rate": 0.005434782608695652,
-        "macro_event_f1": 0.7890960928814612,
-        "macro_incremental_event_recall": 0.7715873015873016,
+        "macro_event_f1": 0.38790789630698036,
+        "macro_incremental_event_recall": 0.37962962962962965,
         "event_f1_by_type": {
-          "spike": 0.9145643029789371,
-          "dip": 0.8234274411518995,
-          "level_shift": 0.8092362052476391,
-          "drift": 0.5738935406698565,
-          "stuck_at": 0.8243589743589742
+          "spike": 0.5242142681167071,
+          "dip": 0.6049701932054874,
+          "level_shift": 0.5211316831632834,
+          "drift": 0.289223337049424,
+          "stuck_at": 0.0
         }
       }
     ]

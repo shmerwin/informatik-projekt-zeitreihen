@@ -82,7 +82,7 @@ def _inject(df, events, anomaly_type, strength, scaler):
 
         for position, index in enumerate(event["indices"]):
             row = injected.loc[index]
-            event_labels.add((row["name"], row["timestamp"].to_datetime64()))
+            original_value = float(row[event["feature"]])
             sensor_id = sensor_ids[row["name"]]
             scaled = scale_values(
                 row[FEATURES].to_numpy(float)[None, :],
@@ -114,9 +114,15 @@ def _inject(df, events, anomaly_type, strength, scaler):
                 injected.loc[index, FEATURES].to_numpy(float)[None, :],
                 np.array([sensor_id]), scaler,
             )[0, feature_id]
-            event_strengths.append(abs(float(actual_scaled) - original))
+            if float(value) != original_value:
+                event_labels.add((
+                    row["name"], row["timestamp"].to_datetime64()
+                ))
+                event_strengths.append(abs(float(actual_scaled) - original))
 
-        if anomaly_type == "stuck_at" and np.mean(event_strengths) < 0.5:
+        if not event_strengths or (
+            anomaly_type == "stuck_at" and np.mean(event_strengths) < 0.5
+        ):
             injected.loc[event["indices"], event["feature"]] = original_values
             continue
         labels.update(event_labels)

@@ -31,7 +31,64 @@ def set_seed(seed=SEED):
     tf.keras.utils.set_random_seed(seed)
 
 
-def load_data(path=DATA_PATH):
+def select_by_validation_loss(candidates, run):
+    """Testet feste Kandidaten und wählt ausschließlich den kleinsten Tune-Loss."""
+    trials = []
+    for params in candidates:
+        history, parameters = run(dict(params))
+        values = np.asarray(history.history.get("val_loss", []), float)
+        if not len(values) or not np.isfinite(values).all():
+            raise ValueError("Modellsuche benötigt endliche val_loss-Werte")
+        best = int(np.argmin(values))
+        trials.append({
+            "params": dict(params),
+            "best_epoch": best + 1,
+            "epochs_run": len(values),
+            "val_loss": float(values[best]),
+            "parameters": int(parameters),
+        })
+    return min(trials, key=lambda trial: trial["val_loss"]), trials
+
+
+def calibration_context_quality(data, mask):
+    """Beschreibt, wie stark die 24h-Kontexte der Kalibrierung imputiert sind."""
+    values = np.asarray(data["imputed_fraction"])[mask]
+    if not len(values):
+        raise ValueError("Keine Kalibrierungskontexte vorhanden")
+    affected = values > 0.5
+    rate = float(affected.mean())
+    return {
+        "sample_count": len(values),
+        "mean_imputed_fraction": float(values.mean()),
+        "median_imputed_fraction": float(np.median(values)),
+        "more_than_half_imputed_count": int(affected.sum()),
+        "more_than_half_imputed_fraction": rate,
+        "warning": (
+            "Mehr als die Hälfte der Kalibrierungskontexte besteht überwiegend "
+            "aus imputierten Stunden; die Schwelle ist nur eingeschränkt belastbar."
+            if rate > 0.5 else None
+        ),
+    }
+
+
+def evaluation_metadata(data, masks):
+    return {
+        "splits": {
+            "train_end": str(TRAIN_END), "tune_end": str(TUNE_END),
+            "calibration_end": str(CALIBRATION_END),
+        },
+        "sample_counts": {name: int(mask.sum()) for name, mask in masks.items()},
+        "calibration_context_quality": calibration_context_quality(
+            data, masks["calibration"]
+        ),
+        "evaluation_limitation": (
+            "Kurzer chronologischer Holdout ab 2025-07-10; keine räumlich "
+            "oder zeitlich unabhängige externe Bestätigung."
+        ),
+    }
+
+
+def load_data(path=DATA_PATH, min_train_points=72):
     with open(path, encoding="utf-8") as datei:
         df = pd.DataFrame(json.load(datei)["sensordata"])
     pflicht = {"timestamp", "name", "is_imputed", *FEATURES}
@@ -44,13 +101,13 @@ def load_data(path=DATA_PATH):
     if not np.isfinite(df[FEATURES].to_numpy(float)).all():
         raise ValueError("NaN oder unendliche Modellwerte gefunden")
 
-    # Sehr kurze Reihen liefern nicht einmal drei unabhängige Tageszyklen.
-    train = df[(df["timestamp"] < TRAIN_END) & ~df["is_imputed"]]
-    genug = train.groupby("name").size()
-    sensoren = sorted(genug[genug >= 72].index)
-    return df[df["name"].isin(sensoren)].sort_values(
-        ["name", "timestamp"]
-    ).reset_index(drop=True)
+    if min_train_points is not None:
+        # Sehr kurze Reihen liefern nicht einmal drei unabhängige Tageszyklen.
+        train = df[(df["timestamp"] < TRAIN_END) & ~df["is_imputed"]]
+        genug = train.groupby("name").size()
+        sensoren = genug[genug >= min_train_points].index
+        df = df[df["name"].isin(sensoren)]
+    return df.sort_values(["name", "timestamp"]).reset_index(drop=True)
 
 
 def fit_scaler(df):
@@ -96,7 +153,7 @@ def make_windows(df, scaler):
     """Erzeugt 24h-Fenster samt Kalender, Sensor-ID und Imputationsmaske."""
     daten = {name: [] for name in [
         "history", "future", "sensor_id", "y_scaled", "y_raw", "observed",
-        "time", "sensor", "seasonal", "imputed_fraction",
+        "time", "sensor", "seasonal", "seasonal_observed", "imputed_fraction",
     ]}
     sensor_id = {name: i for i, name in enumerate(scaler["sensors"])}
 
@@ -123,6 +180,7 @@ def make_windows(df, scaler):
             daten["time"].append(zeiten[i].to_datetime64())
             daten["sensor"].append(sensor)
             daten["seasonal"].append(roh[i - 24])
+            daten["seasonal_observed"].append(beobachtet[i - 24])
             daten["imputed_fraction"].append(1 - beobachtet[i - WINDOW_SIZE:i].mean())
 
     arrays = {
@@ -135,6 +193,7 @@ def make_windows(df, scaler):
         "time": np.asarray(daten["time"], dtype="datetime64[us]"),
         "sensor": np.asarray(daten["sensor"], dtype=object),
         "seasonal": np.asarray(daten["seasonal"], dtype=float),
+        "seasonal_observed": np.asarray(daten["seasonal_observed"], dtype=bool),
         "imputed_fraction": np.asarray(daten["imputed_fraction"], dtype=float),
     }
     return arrays

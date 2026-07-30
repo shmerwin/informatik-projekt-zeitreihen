@@ -3,10 +3,12 @@
 
 \section{Training und Detektorkalibrierung}
 
-Die in Abschnitt~\ref{sec:Methode_Forecaster} begründete feste Architektur wird
-21 Epochen auf 4.401 gemessenen Zielen aus Training und Tuning trainiert. Der
-getrennte Kalibrierungsabschnitt und der Testabschnitt werden dabei nicht zum
-Anpassen der Modellgewichte verwendet. Der Trainingsverlauf ist in
+Von den drei vorab definierten Forecaster-Kandidaten erreicht die Kombination
+aus 64 LSTM-, 32 Dense- und vier Embedding-Einheiten bei 0{,}10 Dropout den
+kleinsten Tuning-Loss. Sie wird 20 Epochen auf 4.401 gemessenen Zielen aus
+Training und Tuning neu trainiert und besitzt 21.366 Parameter. Der getrennte
+Kalibrierungsabschnitt und der Testabschnitt werden dabei nicht zum Anpassen
+der Modellgewichte verwendet. Der Trainingsverlauf ist in
 Abbildung~\ref{fig:forecaster_training} dargestellt.
 
 \begin{figure}[htb]
@@ -17,13 +19,15 @@ Abbildung~\ref{fig:forecaster_training} dargestellt.
   \label{fig:forecaster_training}
 \end{figure}
 
-Die empirische 1-\%-Schwelle des Besucher-Scores liegt bei 0{,}4668. Die
-Kalibrierung vergleicht reine Punktschwellen mit mehreren kausalen
-Persistenzregeln und wählt die einfache 1-\%-Punktschwelle. Auf den
-unveränderten 368 Kalibrierungspunkten erzeugt sie zwei Alarme beziehungsweise
-0{,}54~\% und hält damit das vorab festgelegte 1-\%-Budget ein. Der
-Macro-Ereignis-F1 der Kalibrierungsinjektionen beträgt 0{,}910. Dieser Wert ist
-ein Auswahlkriterium und kein Testergebnis.
+Die Kalibrierung wählt eine hohe Besucher-Schwelle von 0{,}6210 und ergänzt sie
+um eine kausale Regel: Zwei von drei aufeinanderfolgenden Scores müssen die
+niedrigere Schwelle 0{,}2979 überschreiten. Auf den unveränderten 368
+Kalibrierungspunkten erzeugt sie drei Alarme beziehungsweise 0{,}82~\% und
+hält damit das vorab festgelegte 1-\%-Budget ein. Der Macro-Ereignis-F1 der
+Kalibrierungsinjektionen beträgt 0{,}893. Dieser Wert ist ein Auswahlkriterium
+und kein Testergebnis. 336 der 368 Kalibrierungsfenster bestehen allerdings zu
+mehr als der Hälfte aus imputierten Kontextstunden; die Schwelle ist deshalb
+nur eingeschränkt belastbar.
 
 \section{Prognosegüte im Testabschnitt}
 
@@ -37,16 +41,18 @@ ein Auswahlkriterium und kein Testergebnis.
     \hline
     Ziel & MAE & RMSE & MASE & rel. MAE & Abdeckung & Breite \\
     \hline
-    Visitors & 11{,}856 & 23{,}006 & 0{,}637 & 0{,}729 & 98{,}89~\% & 142{,}17 \\
-    AvgDuration & 4{,}121 & 7{,}614 & 0{,}870 & 0{,}821 & 99{,}26~\% & 72{,}49 \\
+    Visitors & 13{,}140 & 27{,}680 & 0{,}699 & 0{,}982 & 99{,}11~\% & 152{,}40 \\
+    AvgDuration & 4{,}153 & 7{,}527 & 0{,}900 & 0{,}972 & 99{,}33~\% & 61{,}87 \\
     \hline
   \end{tabular}
 \end{table}
 
-Beide MASE-Werte und beide relativen Test-MAE-Werte liegen unter eins. Die
-Medianprognose ist damit im Mittel genauer als die jeweils verwendete
-saisonale Skalierung beziehungsweise $t-24$-Testbaseline. Die gemeinsame
-empirische Abdeckung beider Zielgrößen beträgt 98{,}29~\%. Gleichzeitig sind
+Beide MASE-Werte liegen unter eins. Gegenüber der direkt gemessenen
+$t-24$-Testbaseline ist die Besucherprognose um etwa 1{,}8~\% und die nur als
+Hilfsgröße verwendete Verweildauer um etwa 2{,}8~\% genauer. Zähler und Nenner
+dieses direkten Vergleichs beruhen auf denselben 667 vollständig gemessenen
+Paaren. Die
+gemeinsame empirische Abdeckung beider Zielgrößen beträgt 98{,}51~\%. Gleichzeitig sind
 die Intervalle insbesondere für die Passantenzahl breit. Die hohe Abdeckung
 ist deshalb zusammen mit der Breite zu interpretieren und belegt allein keine
 hohe Trennschärfe des Anomaliedetektors. Die Werte für \texttt{avgDuration}
@@ -55,10 +61,12 @@ den Besucher-Score.
 
 \section{Kandidaten im unveränderten Datensatz}
 
-Die eingefrorene 1-\%-Punktregel markiert 15 der 1.346 gemessenen Testpunkte.
-Sie bilden 13 zusammenhängende Forecast-Ereignisse. Alle Alarme werden durch
+Die eingefrorene Persistenzregel markiert 18 der 1.346 gemessenen Testpunkte.
+Sie bilden 11 zusammenhängende Forecast-Ereignisse. Alle Alarme werden durch
 eine Abweichung der Passantenfrequenz ausgelöst; die Verweildauer bleibt eine
-diagnostische Modellausgabe. Abbildung~\ref{fig:forecaster_example} zeigt den Sensor
+diagnostische Modellausgabe. Zehn der 18 Punkte erhalten wegen stark
+imputierter Kontexte oder einer absoluten Überschreitung unter einer Person
+niedrige Konfidenz. Abbildung~\ref{fig:forecaster_example} zeigt den Sensor
 mit den meisten Forecast-Kandidaten. Die rote Markierung bedeutet eine
 statistische Abweichung und keine fachlich bestätigte Anomalie.
 
@@ -70,25 +78,26 @@ statistische Abweichung und keine fachlich bestätigte Anomalie.
   \label{fig:forecaster_example}
 \end{figure}
 
-Zusätzlich besitzen 1.333 Testziele keine Originalmessung. Diese werden zu 275
+Zusätzlich besitzen 1.534 Testziele keine Originalmessung. Diese werden zu 286
 zusammenhängenden Datenlücken-Ereignissen gruppiert und separat ausgewiesen.
-Zusammen mit den 13 Forecast-Ereignissen enthält die Ereignisdatei damit 288
-nach Alarmart getrennte Einträge. Sie sind Hinweise auf fehlende Sensordaten,
+Zusammen mit den 11 Forecast-Ereignissen enthält die Ereignisdatei damit 297
+nach Alarmart getrennte Einträge. Die Datenqualitätsprüfung umfasst alle 30
+Sensoren, obwohl nur 28 davon die Mindestmenge für die Modellierung erreichen.
+Die Einträge sind Hinweise auf fehlende Sensordaten,
 aber nicht automatisch Anomalien des Passantenverhaltens. Würden unmittelbar
 benachbarte Forecast- und Datenqualitätsalarme ohne diese Typtrennung verbunden,
 ginge diese fachliche Unterscheidung verloren. Die Anzahl darf nicht als Zahl
 bestätigter Verhaltensanomalien interpretiert werden.
 
-Sechs der aktuell markierten Stunden überlappen mit bereits manuell gesichteten
-Punkten. Fünf davon wurden binär eingeordnet: zwei positiv und drei negativ;
-ein Punkt blieb offen. Ein aktuelles
-Rosengarten-Ereignis überlappt zwei Stunden, die wegen eines extern
-dokumentierten Umfeldereignisses vorläufig positiv markiert wurden. Dies
-unterstützt die Plausibilität dieses einzelnen Kandidaten, bestätigt aber weder
-seine Ursache noch die Gesamtleistung auf realen Anomalien. Da die Punkte
-nicht zufällig ausgewählt wurden, werden daraus keine
-Precision-, Recall- oder F1-Werte berechnet. Die Einordnungen und Quellen stehen
-in \texttt{manual\_labels.csv}.
+Die ereignisbezogene Prüftabelle enthält alle 11 aktuellen Forecast-Ereignisse.
+Zwei vollständig gesichtete Ereignisse sind als normal eingeordnet, neun
+bleiben offen; teilweise vorhandene Punktbewertungen werden nicht zu einem
+Ereignislabel hochgerechnet. Weil weder alle gemessenen Testpunkte noch alle
+Ereignisse vollständig beschriftet sind, werden daraus keine Precision-,
+Recall-, F1- oder AUC-Werte berechnet. Die Einordnungen und Quellen bleiben in
+\texttt{manual\_labels.csv} beziehungsweise
+\texttt{event\_review\_template.csv} erhalten. Bei einer erneuten Auswertung
+werden Ereignisreviews nur bei identischem Sensor, Beginn und Ende übernommen.
 
 \section{Ergebnisse der Anomalieinjektion}
 
@@ -107,36 +116,35 @@ gepaarten unveränderten Lauf.
     \hline
     Typ & Punkt-R & Punkt-F1 & Ereignis-R & Ereignis-F1 \\
     \hline
-    Spike, 2{,}0 & 0{,}933 & 0{,}957 & 0{,}933 & 0{,}965 \\
-    Dip, 2{,}0 & 0{,}683 & 0{,}804 & 0{,}683 & 0{,}804 \\
-    Level-Shift, 2{,}0 & 0{,}861 & 0{,}915 & 0{,}972 & 0{,}961 \\
-    Drift, 2{,}0 & 0{,}729 & 0{,}814 & 0{,}944 & 0{,}898 \\
-    Stuck-at, 6 h & 0{,}278 & 0{,}426 & 0{,}510 & 0{,}649 \\
+    Spike, 2{,}0 & 0{,}933 & 0{,}903 & 0{,}933 & 0{,}957 \\
+    Dip, 2{,}0 & 0{,}691 & 0{,}731 & 0{,}691 & 0{,}800 \\
+    Level-Shift, 2{,}0 & 0{,}902 & 0{,}840 & 0{,}972 & 0{,}946 \\
+    Drift, 2{,}0 & 0{,}674 & 0{,}690 & 0{,}917 & 0{,}892 \\
+    Stuck-at, 6 h & 0{,}315 & 0{,}453 & 0{,}611 & 0{,}733 \\
     \hline
   \end{tabular}
 \end{table}
 
 Die starken Spikes und Level-Shifts werden am sichersten erkannt. Auch der
-vierstündige Drift erreicht einen Ereignis-Recall von 0{,}944. Stuck-at bleibt
-mit einem Ereignis-F1 von 0{,}649 der schwierigste Typ. Da die Auswahl die reine
-1-\%-Punktschwelle ergibt, sind ausgewählter Detektor und Referenzdetektor in
-diesem Lauf identisch; eine zusätzliche Persistenzregel ist nicht nötig.
+vierstündige Drift erreicht einen Ereignis-Recall von 0{,}917. Stuck-at bleibt
+auf Punktebene am schwierigsten, profitiert mit einem Ereignis-F1 von 0{,}733
+aber von der kalibrierten Persistenzregel.
 
 Schwache Injektionen bleiben schwierig. Bei Stärke 0{,}5 beträgt der
-Ereignis-Recall 0{,}217 für Spike, 0{,}067 für Dip, 0{,}250 für Level-Shift
-und 0{,}167 für Drift. Der Detektor erkennt folglich nicht jede definierte
+Ereignis-Recall 0{,}133 für Spike, 0{,}055 für Dip, 0{,}306 für Level-Shift
+und 0{,}250 für Drift. Der Detektor erkennt folglich nicht jede definierte
 Anomalie. Die vollständigen Werte aller Stärken einschließlich Precision,
-PR-AUC, IoU und Verzögerung stehen in
+Average Precision (AP), IoU und Verzögerung stehen in
 \texttt{injection\_benchmark.csv} und
 \texttt{injection\_benchmark.json}.
 
 \section{Vergleich der finalen Modelle}
 \label{sec:Ergebnisse_Modellvergleich}
 
-Tabelle~\ref{tab:model_comparison} vergleicht Forecaster und Autoencoder auf
-denselben starken Testinjektionen. Dazu werden die fünf Anomaliearten gleich
-gewichtet gemittelt. Die künstlichen Ereignisse und die Alarmregel des
-Testabschnitts wurden für kein Modell zur Auswahl der Netzschichten verwendet.
+Tabelle~\ref{tab:model_comparison} vergleicht Forecaster, Autoencoder und die
+robuste saisonale Baseline auf den starken Testinjektionen. Dazu werden die
+fünf Anomaliearten gleich gewichtet gemittelt. Die künstlichen Testereignisse
+wurden für kein Verfahren zur Architektur- oder Regelauswahl verwendet.
 
 \begin{table}[htb]
   \centering
@@ -145,40 +153,66 @@ Testabschnitts wurden für kein Modell zur Auswahl der Netzschichten verwendet.
   \label{tab:model_comparison}
   \begin{tabular}{lrrrrr}
     \hline
-    Modell & Parameter & Punkt-F1 & PR-AUC & Ereignis-R & Ereignis-F1 \\
+    Modell & Parameter & Punkt-F1 & AP & Ereignis-R & Ereignis-F1 \\
     \hline
-    Forecaster & 22.798 & 0{,}783 & 0{,}750 & 0{,}809 & 0{,}855 \\
-    Autoencoder & 3.426 & 0{,}706 & 0{,}562 & 0{,}827 & 0{,}777 \\
+    Forecaster & 21.366 & 0{,}724 & 0{,}738 & 0{,}825 & 0{,}866 \\
+    Autoencoder & 12.994 & 0{,}589 & 0{,}481 & 0{,}745 & 0{,}706 \\
+    Saisonal $t-24$ & 0 & 0{,}504 & 0{,}287 & 0{,}567 & 0{,}578 \\
     \hline
   \end{tabular}
 \end{table}
 
-Der Autoencoder benötigt rund 85~\% weniger Parameter und erreicht mit 0{,}827
-einen geringfügig höheren mittleren Ereignis-Recall als der Forecaster. Seine
-geringere Punkt-PR-AUC und sein niedrigerer Ereignis-F1 zeigen jedoch, dass dies
-mit mehr zusätzlichen Alarmereignissen verbunden ist. Beim Dip liegt sein
-Ereignis-F1 mit 0{,}814 knapp über den 0{,}804 des Forecasters; bei den übrigen
-vier Typen und im Gesamtmittel ist der Forecaster stärker. Er bleibt deshalb
-für den aktuellen Datensatz das stärkere Einzelmodell. Eine Mischung beider Anomaliewerte wurde nicht vorgenommen,
-damit Prognose und Rekonstruktion getrennt beurteilt werden können.
+Der Forecaster erreicht den höchsten Punkt- und Ereignis-F1, die höchste AP
+und den höchsten Ereignis-Recall. Alle Verfahren werden auf denselben 1.346
+gemessenen Testzielen je Lauf bewertet. Die saisonale Baseline kann davon 667
+mit einer ebenfalls gemessenen $t-24$-Referenz scoren; an den übrigen Punkten
+enthält sie sich eines Alarms und fehlende Scores werden für die
+Rankingmetriken als niedrigste Priorität eingeordnet. Sie alarmiert im
+unveränderten Lauf bei 2{,}45~\% aller Testziele, der Forecaster bei 1{,}34~\%.
+Der
+Autoencoder verwendet dieselben 4.401 Trainingsfenster wie der
+Forecaster, erreicht jedoch keine der besten Gesamtkennzahlen. Eine Mischung
+der Anomaliewerte wird nicht vorgenommen, damit die Verfahren getrennt
+beurteilt werden können.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\textwidth]{../saved_models/benchmark/roc_pr_comparison.png}
+  \caption{Mittlere ROC- und PR-Kurven der starken synthetischen Anomalien.
+    Eigene Darstellung.}
+  \label{fig:roc_pr_comparison}
+\end{figure}
+
+Im Rauschtest erzeugt der Forecaster bei 5~\% Stärke keinen und bei 15~\%
+vier zusätzliche Alarme, entsprechend 0{,}30~\% der gemessenen Testpunkte.
+Der Autoencoder erzeugt null beziehungsweise 14 zusätzliche Alarme
+(1{,}04~\% bei 15~\%). Die saisonale Baseline erzeugt vier beziehungsweise
+sechs zusätzliche Alarme, entsprechend 0{,}30~\% beziehungsweise 0{,}45~\%
+der 1.346 Testziele. Der Forecaster
+ist in diesem Test folglich am robustesten.
 
 \section{Diskussion und Limitationen}
 
 Die Ergebnisse beantworten die Forschungsfrage differenziert. Der globale
-Quantil-Forecaster übertrifft die saisonale Baseline im mittleren
-Prognosefehler. Starke Besucher-Spikes, Level-Shifts und Drifts werden
-überwiegend erkannt; Stuck-at bleibt schwieriger. Für schwache Anomalien und
-einzelne Dips ist die Sensitivität geringer. Der kompakte Autoencoder bestätigt, dass
-Rekonstruktionsfehler grundsätzlich nutzbar sind, erreicht auf diesen Daten
-aber nicht die Erkennungsleistung des Forecasters.
+Quantil-Forecaster verbessert den Besucher-MAE gegenüber der gemessenen
+$t-24$-Prognose leicht und liefert den höchsten Ereignis-F1 sowie die beste
+Rauschrobustheit. Die parameterfreie saisonale Methode bleibt beim Punkt-F1
+konkurrenzfähig und verhindert damit, dass zusätzliche Modellkomplexität ohne
+Vergleich als Verbesserung gilt. Starke Besucher-Spikes, Level-Shifts und
+Drifts werden überwiegend erkannt; schwache Anomalien und Stuck-at-Punkte
+bleiben schwieriger. Der Autoencoder bestätigt, dass Rekonstruktionsfehler
+grundsätzlich nutzbar sind, erreicht auf diesen Daten aber nicht die
+Erkennungsleistung des Forecasters.
 
 Die synthetische Ground Truth gilt ausschließlich für die definierten
 Transformationen der Passantenfrequenz. Sie belegt weder den Recall unbekannter
-realer Anomalien noch die fachliche Richtigkeit der 13 Kandidatenereignisse im
+realer Anomalien noch die fachliche Richtigkeit der 11 Kandidatenereignisse im
 Originaldatensatz. Der nur zwei
 Wochen umfassende Datensatz begrenzt außerdem die beobachtbaren Wochenmuster
 und die Größe von Tuning und Kalibrierung. Zeitliche Abhängigkeit verhindert
 eine klassische verteilungsfreie Conformal-Garantie. Schließlich wurde der
 Testzeitraum im Verlauf der retrospektiven Entwicklung bereits betrachtet;
 die Testinjektionen sind durch neue Zufallsstartwerte und eine festgelegte Regel getrennt,
-stellen aber keine vollständig unangetastete konfirmatorische Studie dar.
+stellen aber keine vollständig unangetastete konfirmatorische Studie dar. Die
+vier Testtage erlauben keine belastbare Rolling-Origin-Neuschätzung und keinen
+vollständig neuen saisonalen Zeitraum.

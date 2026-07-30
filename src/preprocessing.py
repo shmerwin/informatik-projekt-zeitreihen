@@ -72,13 +72,12 @@ def process_and_impute_full_data(filepath, train_end=TRAIN_END):
     systemausfall = vorhanden.sum(axis=1).ge(10) & (nullmeldung | ~vorhanden).all(axis=1)
     gemessen.loc[systemausfall] = np.nan
 
-    laufzeiten = df.groupby("name")["timestamp"].agg(["min", "max"])
+    starts = df.groupby("name")["timestamp"].min()
     aktiv = pd.DataFrame(False, index=gemessen.index, columns=gemessen.columns)
     for feature, sensor in gemessen.columns:
-        aktiv[(feature, sensor)] = (
-            (gemessen.index >= laufzeiten.loc[sensor, "min"])
-            & (gemessen.index <= laufzeiten.loc[sensor, "max"])
-        )
+        # Ein Sensor aus dem aktuellen Karten-Layer bleibt nach seiner ersten
+        # Messung aktiv; ein dauerhaft ausbleibender Stream ist ein Ausfall.
+        aktiv[(feature, sensor)] = gemessen.index >= starts.loc[sensor]
     gemessen = gemessen.where(aktiv)
 
     werte = gemessen.copy()

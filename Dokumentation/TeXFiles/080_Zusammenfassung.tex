@@ -1,21 +1,26 @@
 \chapter{Zusammenfassung und Ausblick}
 \label{ch:Zusammenfassung}
 
-Die aufbereiteten Sensordaten wurden mit zwei getrennten Verfahren untersucht:
-Ein Forecaster bewertet Abweichungen von seiner Prognose, ein kompakter
-Autoencoder bewertet Rekonstruktionsfehler. Beide Modelle lernen zusätzlich
-die Verweildauer, ihre Alarme und künstlichen Testanomalien beziehen sich aber
-ausschließlich auf die Passantenfrequenz. Sie verwenden dieselben Zeitabschnitte
-und ursprünglich gemessenen Zielwerte. Dadurch ist der Vergleich nachvollziehbar, ohne die beiden
-Anomaliewerte miteinander zu vermischen.
+Die aufbereiteten Sensordaten wurden mit drei getrennten Verfahren untersucht:
+Ein Forecaster bewertet Abweichungen von seiner Prognose, ein Autoencoder
+bewertet Rekonstruktionsfehler und eine robuste parameterfreie Baseline die
+Abweichung vom gemessenen Wert 24 Stunden zuvor. Die beiden neuronalen Modelle
+lernen zusätzlich die Verweildauer; sämtliche Alarme und künstlichen
+Testanomalien beziehen sich aber ausschließlich auf die Passantenfrequenz. Die
+Verfahren verwenden dieselben Zeitabschnitte und Entscheidungskriterien, ohne
+ihre Anomaliewerte miteinander zu vermischen.
 
-Der Forecaster erreicht insgesamt den höheren Punkt- und Ereignis-F1. Der
-Autoencoder ist deutlich kleiner und erzielt einen ähnlich hohen
-Ereignis-Recall, erzeugt dabei jedoch mehr zusätzliche Alarmereignisse.
-Mehr Schichten sind mit den kurzen Datenreihen daher derzeit nicht begründet.
+Der Forecaster erreicht auf der gemeinsamen operativen Testpopulation den
+höchsten Punkt- und Ereignis-F1, die höchste AP und die beste
+Rauschrobustheit. Die saisonale Baseline benötigt keine trainierbaren
+Parameter, bleibt nach Einbeziehung ihrer nicht bewertbaren Stunden aber
+hinter dem Forecaster. Der Autoencoder ist kleiner als der
+Forecaster, bleibt bei den Gesamtkennzahlen jedoch dahinter. Mehr Schichten
+sind mit den kurzen Datenreihen daher derzeit nicht begründet.
 Als nächste Schritte sind vor allem die vollständige manuelle Prüfung der nach
 dem letzten Training aktuellen Kandidaten, die Klärung der geplanten
-Sensorlaufzeiten, längere Messreihen und zeitlich wiederholte Tests sinnvoll.
-Erst mit deutlich mehr Daten sollte zusätzlich ein Transformer untersucht
-werden.
+Sensorlaufzeiten, längere Messreihen und ein vollständig neuer Testzeitraum
+sinnvoll. Erst dann sind echte Rolling-Origin-Auswertungen belastbar; einen
+Transformer zu ergänzen ist ebenfalls erst mit deutlich längeren Reihen
+begründet.
 

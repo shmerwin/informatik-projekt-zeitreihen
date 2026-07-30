@@ -9,10 +9,13 @@ import numpy as np
 import pandas as pd
 
 from src.forecaster.common import anomaly_scores, fit_calibrator
-from src.benchmark import _inject, _injection_events
+from src.benchmark_injections import _inject, _injection_events
 from src.detector import detector_output
 from src.autoencoder.train import add_masking_noise, sequences
-from src.forecaster.evaluate import _evaluate_labels
+from src.forecaster.evaluate import (
+    _alert_confidence, _evaluate_labels, _event_review_template, _forecast_metrics,
+    _unmodeled_missing_candidates,
+)
 from src.preprocessing import process_and_impute_full_data
 
 
@@ -68,6 +71,30 @@ class PreprocessingTests(unittest.TestCase):
         self.assertTrue(outage["is_imputed"].all())
         self.assertTrue((outage["imputation_method"] == "causal_ffill").all())
 
+    def test_sensor_dropout_remains_visible_until_dataset_end(self):
+        records = [
+            {"timestamp": "2025-01-01T00:00:00Z", "name": "drops",
+             "visitors": 1, "avgDuration": 1},
+            {"timestamp": "2025-01-01T00:00:00Z", "name": "continues",
+             "visitors": 1, "avgDuration": 1},
+            {"timestamp": "2025-01-01T03:00:00Z", "name": "continues",
+             "visitors": 2, "avgDuration": 2},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "raw.json"
+            path.write_text(json.dumps({"sensordata": records}), encoding="utf-8")
+            result = process_and_impute_full_data(
+                path, "2025-01-02T00:00:00Z"
+            )
+        dropped = result[result["name"] == "drops"]
+        self.assertEqual(len(dropped), 4)
+        self.assertEqual(dropped["is_imputed"].tolist(), [False, True, True, True])
+        alerts = _unmodeled_missing_candidates(
+            result, ["continues"], result["timestamp"].min()
+        )
+        self.assertEqual(len(alerts), 3)
+        self.assertFalse(alerts["anomaly"].any())
+
 
 class CalibrationTests(unittest.TestCase):
     def test_only_visitors_trigger_the_anomaly_score(self):
@@ -88,6 +115,19 @@ class CalibrationTests(unittest.TestCase):
         self.assertGreater(extreme_score[0], calibrator["threshold"])
         self.assertEqual(duration_score[0], normal_score[0])
 
+    def test_auxiliary_evaluation_rules(self):
+        actual = np.array([[10.0, 5.0], [20.0, 6.0]])
+        metrics = _forecast_metrics(
+            actual, np.array([[9.0, 4.0], [0.0, 0.0]]),
+            np.array([[0.0, 4.0], [np.nan, np.nan]]),
+            actual - 2, actual + 2, np.ones(2),
+        )["visitors"]
+        self.assertEqual(metrics["seasonal_naive_test_pairs"], 1)
+        self.assertEqual(metrics["relative_mae_vs_t_minus_24_test"], 0.1)
+        confidence, reason = _alert_confidence(0.75, 10, 10.5, 20)
+        self.assertEqual(confidence, "low")
+        self.assertIn("< 1 Besucher", reason)
+
 
 class InjectionTests(unittest.TestCase):
     def test_injection_changes_only_the_copy_and_produces_a_label(self):
@@ -105,6 +145,11 @@ class InjectionTests(unittest.TestCase):
         self.assertGreater(injected.loc[0, "visitors"], 10.0)
         self.assertEqual(len(labels), 1)
         self.assertGreater(realized[0], 0.9)
+        zero = frame.assign(visitors=0.0)
+        _, labels, _ = _inject(
+            zero, [{**events[0], "direction": -1}], "dip", 2.0, scaler
+        )
+        self.assertFalse(labels)
 
     def test_all_injection_types_target_visitors(self):
         times = pd.date_range("2025-07-10", periods=6, freq="1h", tz="UTC")
@@ -166,26 +211,44 @@ class AutoencoderTests(unittest.TestCase):
 
 
 class LabelTests(unittest.TestCase):
-    def test_empty_template_rows_are_ignored(self):
+    def test_metrics_require_complete_measured_labels(self):
+        times = pd.date_range("2025-01-01", periods=3, freq="1h", tz="UTC")
         candidates = pd.DataFrame({
-            "sensor": ["Sensor A", "Sensor A"],
-            "time": pd.to_datetime([
-                "2025-01-01T00:00:00Z", "2025-01-01T01:00:00Z"
-            ]),
-            "detector_score": [1.0, -1.0],
-            "anomaly": [True, False],
-        })
-        labels = pd.DataFrame({
-            "sensor": ["Sensor A", "Sensor A"],
-            "time": candidates["time"],
-            "label": ["1", ""],
+            "sensor": "Sensor A", "time": times,
+            "anomaly_score": [1.0, -1.0, -np.inf],
+            "forecast_anomaly": [True, False, False],
+            "data_quality_issue": [False, False, True],
         })
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "labels.csv"
-            labels.to_csv(path, index=False)
-            result = _evaluate_labels(path, candidates)
-        self.assertEqual(result["matched_rows"], 1)
-        self.assertEqual(result["metrics"]["confusion_matrix"]["tp"], 1)
+            pd.DataFrame({
+                "sensor": ["Sensor A"], "time": times[:1], "label": [1],
+            }).to_csv(path, index=False)
+            partial = _evaluate_labels(path, candidates)
+            pd.DataFrame({
+                "sensor": ["Sensor A", "Sensor A"],
+                "time": times[:2], "label": [1, 0],
+            }).to_csv(path, index=False)
+            complete = _evaluate_labels(path, candidates)
+        self.assertIsNone(partial["metrics"])
+        self.assertFalse(partial["coverage"]["complete"])
+        self.assertEqual(complete["metrics"]["f1"], 1.0)
+
+    def test_existing_event_review_survives_exact_match(self):
+        events = pd.DataFrame({
+            "sensor": ["A", "B"],
+            "start": pd.to_datetime(["2025-01-01", "2025-01-02"], utc=True),
+            "end": pd.to_datetime(["2025-01-01", "2025-01-02"], utc=True),
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "reviews.csv"
+            events.iloc[:1].assign(
+                review_status="bestaetigt", label="normal", label_type="",
+                comment="geprueft", source_url=""
+            ).to_csv(path, index=False)
+            result = _event_review_template(events, path)
+        self.assertEqual(result["review_status"].tolist(), ["bestaetigt", "offen"])
+        self.assertEqual(result.loc[0, "comment"], "geprueft")
 
 
 if __name__ == "__main__":
