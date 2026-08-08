@@ -37,7 +37,9 @@ Zustandsvektor verdichten und daraus eine Prognose erzeugen.
 Ein Autoencoder lernt dagegen, sein Eingabefenster zu rekonstruieren. Ein hoher
 Rekonstruktionsfehler kann eine unbekannte Struktur anzeigen. Prognose und
 Rekonstruktion beruhen somit auf unterschiedlichen Annahmen über normales
-Verhalten. Ein Transformer verarbeitet verschiedene Zeitpunkte mit einem
-Aufmerksamkeitsmechanismus und kann dadurch auch weiter auseinanderliegende
-Zusammenhänge direkt gewichten. Diese zusätzliche Freiheit ist vor allem bei
+Verhalten. Ein Transformer verarbeitet verschiedene Zeitpunkte mit
+Self-Attention und kann dadurch auch weiter auseinanderliegende Zusammenhänge
+direkt gewichten. Da der Mechanismus allein keine Reihenfolge kennt, wird die
+Position jedes Zeitpunkts zusätzlich kodiert
+\cite{vaswani2017attention}. Diese zusätzliche Freiheit ist vor allem bei
 längeren Reihen und einer größeren Datenbasis nützlich.

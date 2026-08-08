@@ -26,20 +26,22 @@ Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
   \end{tabular}
 \end{table}
 
-Für Forecaster und Autoencoder werden jeweils drei vorab festgelegte kleine
-Architektur- und Lernratenkombinationen verglichen. Jeder Kandidat lernt nur
-auf dem Trainingsabschnitt; der Tuning-Loss bestimmt mit höchstens 20 Epochen
-und Early Stopping die Kombination und Epochenzahl. Das ausgewählte Modell
-wird anschließend für genau diese Epochen auf Training und Tuning gemeinsam,
-also jeweils auf denselben 4.401 Fenstern mit identischen Zielzeitpunkten, neu
-trainiert. Erst danach
+Für LSTM-Forecaster, Transformer und Autoencoder werden jeweils drei vorab
+festgelegte kleine Architektur- und Lernratenkombinationen verglichen. Jeder
+Kandidat lernt nur auf dem Trainingsabschnitt; der Tuning-Loss bestimmt die
+Kombination und Epochenzahl. LSTM und Autoencoder erhalten höchstens 20
+Epochen, der Transformer höchstens 80 mit Early Stopping nach zehn
+Epochen ohne Verbesserung. Das ausgewählte Modell wird anschließend für genau
+diese Epochen auf Training und Tuning gemeinsam, also jeweils auf denselben
+4.401 Fenstern mit identischen Zielzeitpunkten, neu trainiert. Erst danach
 bestimmt der Kalibrierungsabschnitt die Schwellen und gegebenenfalls eine
 Persistenzregel. Der Testabschnitt wird für keine dieser Entscheidungen
 verwendet.
 
 \section{Bewertung der Prognosegüte}
 
-Die Medianprognose $q_{0{,}5}$ wird mit MAE und RMSE bewertet. Zusätzlich wird
+Die Medianprognose $q_{0{,}5}$ beider Prognosemodelle wird mit MAE und RMSE
+bewertet. Zusätzlich wird
 die saisonal skalierte mittlere absolute Abweichung (MASE) nach Hyndman und
 Koehler berichtet \cite{hyndman2006accuracy}:
 \begin{equation}
@@ -67,7 +69,7 @@ Als einfache robuste Vergleichsmethode wird zusätzlich die Abweichung vom
 gemessenen Wert derselben Stunde des Vortags verwendet. Nach der sensorweisen
 robusten Skalierung werden die Residuen durch Median und Interquartilsabstand
 der gemessenen Trainingspaare standardisiert;
-Schwelle und Persistenzregel werden anschließend genauso wie bei den beiden
+Schwelle und Persistenzregel werden anschließend genauso wie bei den drei
 neuronalen Modellen kalibriert. Der Detektor besitzt keine trainierbaren
 Parameter und kann nur Punkte bewerten, für die der aktuelle Wert und der
 $t-24$-Wert tatsächlich gemessen wurden. Fehlt der Vergleichswert, enthält
@@ -83,7 +85,7 @@ aber keine Evaluation realer Ereignisse \cite{schmidl2022evaluation}. Die
 Anomalien werden ausschließlich in ursprünglich gemessene Werte injiziert,
 bevor Zeitfenster erzeugt und Prognosen berechnet werden. Damit beeinflussen
 mehrstündige Ereignisse den nachfolgenden Modellkontext wie reale Messwerte.
-Alle drei Detektoren erhalten dieselben ausgewählten Sensoren, Zeitpunkte,
+Alle vier Detektoren erhalten dieselben ausgewählten Sensoren, Zeitpunkte,
 Richtungen und Stärken. Verändert wird ausschließlich
 \texttt{visitors}, weil die gesuchte Anomalie eine Abweichung der
 Passantenfrequenz ist.
@@ -158,23 +160,26 @@ folgenden Befehlen ausgeführt:
 \begin{verbatim}
 py -3.12 -m src.preprocessing
 py -3.12 -m src.forecaster.train
+py -3.12 -m src.transformer.train
 py -3.12 -m src.autoencoder.train
 py -3.12 -m src.seasonal_baseline
 py -3.12 -m src.benchmark
 py -3.12 -m src.forecaster.evaluate
+py -3.12 -m src.forecaster.evaluate --model-dir saved_models/transformer
 \end{verbatim}
 Bei unveränderten Rohdaten werden nur die gewünschten Modelle neu trainiert.
-Für die erneute Auswertung des gespeicherten Forecasters reicht
-\texttt{py -3.12 -m src.forecaster.evaluate}. Der davon getrennte synthetische
-Vergleich aller drei Verfahren wird mit \texttt{py -3.12 -m src.benchmark}
-ausgeführt. Modellparameter,
+Für die erneute Auswertung des gespeicherten LSTM-Forecasters reicht
+\texttt{py -3.12 -m src.forecaster.evaluate}; derselbe Aufruf mit
+\texttt{--model-dir saved\_models/transformer} wertet den Transformer aus. Der
+davon getrennte synthetische Vergleich aller vier Verfahren wird mit
+\texttt{py -3.12 -m src.benchmark} ausgeführt. Modellparameter,
 Splits, Skalierung, Kalibrierung und Detektorregel werden in
 \texttt{model\_bundle.json} gespeichert. Die Auswertung erzeugt unter anderem
 \texttt{evaluation\_metrics.json}, \texttt{anomalies.csv},
 \texttt{anomaly\_events.csv}, \texttt{labels\_template.csv},
 \texttt{event\_review\_template.csv} und die Abbildung
 \texttt{anomalies\_example.png}. Der gemeinsame Injektionstest schreibt die
-Detailergebnisse je Modell und fasst alle drei Verfahren zusätzlich in
+Detailergebnisse je Modell und fasst alle vier Verfahren zusätzlich in
 \texttt{saved\_models/benchmark/model\_comparison.csv} sowie in der gemeinsamen
 ROC-/PR-Abbildung zusammen.
 Der zugehörige Code ist nach Injektionen, Metriken, Auswertung und der kurzen

@@ -1,26 +1,29 @@
 \chapter{Zusammenfassung und Ausblick}
 \label{ch:Zusammenfassung}
 
-Die aufbereiteten Sensordaten wurden mit drei getrennten Verfahren untersucht:
-Ein Forecaster bewertet Abweichungen von seiner Prognose, ein Autoencoder
-bewertet Rekonstruktionsfehler und eine robuste parameterfreie Baseline die
-Abweichung vom gemessenen Wert 24 Stunden zuvor. Die beiden neuronalen Modelle
-lernen zusätzlich die Verweildauer; sämtliche Alarme und künstlichen
-Testanomalien beziehen sich aber ausschließlich auf die Passantenfrequenz. Die
-Verfahren verwenden dieselben Zeitabschnitte und Entscheidungskriterien, ohne
-ihre Anomaliewerte miteinander zu vermischen.
+Die aufbereiteten Sensordaten wurden mit vier getrennten Verfahren untersucht:
+Ein LSTM und ein kompakter Transformer bewerten Abweichungen von ihrer
+Prognose, ein Autoencoder bewertet Rekonstruktionsfehler und eine robuste
+parameterfreie Baseline die Abweichung vom gemessenen Wert 24 Stunden zuvor.
+Die drei neuronalen Modelle lernen zusätzlich die Verweildauer; sämtliche
+Alarme und künstlichen Testanomalien beziehen sich aber ausschließlich auf die
+Passantenfrequenz. Die Verfahren verwenden dieselben Zeitabschnitte und
+Entscheidungskriterien, ohne ihre Anomaliewerte miteinander zu vermischen.
 
-Der Forecaster erreicht auf der gemeinsamen operativen Testpopulation den
-höchsten Punkt- und Ereignis-F1, die höchste AP und die beste
-Rauschrobustheit. Die saisonale Baseline benötigt keine trainierbaren
-Parameter, bleibt nach Einbeziehung ihrer nicht bewertbaren Stunden aber
-hinter dem Forecaster. Der Autoencoder ist kleiner als der
-Forecaster, bleibt bei den Gesamtkennzahlen jedoch dahinter. Mehr Schichten
-sind mit den kurzen Datenreihen daher derzeit nicht begründet.
+Der LSTM erreicht auf der gemeinsamen operativen Testpopulation den höchsten
+Punkt-F1, die höchste AP und die beste Rauschrobustheit. Der Transformer
+prognostiziert genauer und erreicht den höchsten Ereignis-Recall sowie knapp
+den höchsten Ereignis-F1, reagiert aber stärker auf Rauschen. Die saisonale
+Baseline benötigt keine trainierbaren Parameter, bleibt nach Einbeziehung
+ihrer nicht bewertbaren Stunden aber hinter beiden Prognosemodellen. Der
+Autoencoder ist kleiner, bleibt bei den Gesamtkennzahlen jedoch ebenfalls
+dahinter. Die zusätzliche Attention führt somit zu einem konkreten
+Ereignisvorteil, aber nicht zu einer allgemeinen Überlegenheit.
 Als nächste Schritte sind vor allem die vollständige manuelle Prüfung der nach
 dem letzten Training aktuellen Kandidaten, die Klärung der geplanten
 Sensorlaufzeiten, längere Messreihen und ein vollständig neuer Testzeitraum
-sinnvoll. Erst dann sind echte Rolling-Origin-Auswertungen belastbar; einen
-Transformer zu ergänzen ist ebenfalls erst mit deutlich längeren Reihen
-begründet.
+sinnvoll. Erst dann sind echte Rolling-Origin-Auswertungen und eine erneute
+Abstimmung von Fensterlänge und Transformer-Größe belastbar. Insbesondere der
+kleine Vorsprung bei den Ereignismetriken muss auf längeren Zeiträumen
+bestätigt werden.
 

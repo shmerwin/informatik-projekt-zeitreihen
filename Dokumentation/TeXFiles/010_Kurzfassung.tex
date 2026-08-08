@@ -13,17 +13,20 @@ interne Lücken ohne Informationen aus dem späteren Testzeitraum. Imputierte
 Werte bleiben als gekennzeichneter Kontext erhalten, werden aber nicht als
 Lern- oder Bewertungsziel verwendet.
 
-Das Hauptmodell ist ein Quantil-LSTM mit 21.366 Parametern, das aus den
-vorhergehenden 24 Stunden die nächste Stunde prognostiziert. Ein
-LSTM-Autoencoder mit 12.994 Parametern und ein parameterfreier robuster
-$t-24$-Detektor bilden getrennte Vergleichsmethoden. Bei starken künstlichen
-Anomalien erreicht der Forecaster einen mittleren Punkt-F1 von 0{,}724 und
-einen Ereignis-F1 von 0{,}866. Der Autoencoder erreicht 0{,}589
-beziehungsweise 0{,}706, die saisonale Methode 0{,}504 beziehungsweise
-0{,}578. Die korrigierte Ereignisauswertung ordnet jedem injizierten Ereignis
-höchstens ein Alarmereignis zu. Im unveränderten Testabschnitt markiert der
-Forecaster 18 Stunden in 11 Ereignissen; 1.534 fehlende Messungen werden
-getrennt als Datenqualitätsprobleme ausgewiesen. Diese Werte zeigen die
+Untersucht werden ein Quantil-LSTM mit 21.366 Parametern, ein kompakter
+Quantil-Transformer mit 19.318 Parametern, ein LSTM-Autoencoder mit 12.994
+Parametern und ein parameterfreier robuster $t-24$-Detektor. Bei starken
+künstlichen Anomalien erreicht der LSTM-Forecaster einen mittleren Punkt-F1
+von 0{,}724 und einen Ereignis-F1 von 0{,}866. Der Transformer erreicht
+0{,}613 beziehungsweise 0{,}871, der Autoencoder 0{,}589 beziehungsweise
+0{,}706 und die saisonale Methode 0{,}504 beziehungsweise 0{,}578. Damit
+erkennt der Transformer geringfügig mehr vollständige Ereignisse, während der
+LSTM einzelne Anomaliepunkte präziser trennt. Die korrigierte
+Ereignisauswertung ordnet jedem injizierten Ereignis höchstens ein
+Alarmereignis zu. Im unveränderten Testabschnitt markieren LSTM und Transformer
+18 beziehungsweise 19 Stunden in 11 beziehungsweise 12 Ereignissen; 1.534
+fehlende Messungen werden getrennt als Datenqualitätsprobleme ausgewiesen.
+Diese Werte zeigen die
 technische Erkennungsfähigkeit für definierte Veränderungen; die nur
 zweiwöchige Datenbasis, überwiegend imputierten Kalibrierungskontexte und
 fehlende vollständige reale Markierungen begrenzen die Übertragbarkeit auf

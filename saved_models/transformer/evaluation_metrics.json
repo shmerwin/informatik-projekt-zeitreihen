@@ -1,0 +1,77 @@
+{
+  "forecast": {
+    "visitors": {
+      "mae": 11.614343065987082,
+      "rmse": 24.25733614607476,
+      "mase": 0.6174152627602022,
+      "relative_mae_vs_t_minus_24_test": 0.8315391562246283,
+      "model_mae_on_t_minus_24_pairs": 11.514386277197401,
+      "seasonal_naive_test_mae": 13.847076461769115,
+      "seasonal_naive_test_pairs": 667,
+      "mase_training_scale": 18.811234134485552,
+      "interval_coverage": 0.9858841010401189,
+      "mean_interval_width": 147.4681231791802
+    },
+    "avgDuration": {
+      "mae": 3.760456309828697,
+      "rmse": 7.024573922106904,
+      "mase": 0.8153441793547777,
+      "relative_mae_vs_t_minus_24_test": 0.810276156527969,
+      "model_mae_on_t_minus_24_pairs": 3.321646319032123,
+      "seasonal_naive_test_mae": 4.099400299850076,
+      "seasonal_naive_test_pairs": 667,
+      "mase_training_scale": 4.612109100729134,
+      "interval_coverage": 0.9829123328380386,
+      "mean_interval_width": 31.2190813293675
+    }
+  },
+  "all_feature_interval_coverage": 0.9702823179791976,
+  "anomaly_feature": "visitors",
+  "detector": {
+    "config": {
+      "high_alpha": 0.005,
+      "point_threshold": 0.6482913200562569,
+      "low_alpha": 0.05,
+      "low_threshold": 0.1916686491661728,
+      "persistence_window": 3,
+      "required_exceedances": 2,
+      "selection_period": [
+        "2025-07-09 00:00:00+00:00",
+        "2025-07-10 00:00:00+00:00"
+      ],
+      "max_calibration_alarm_rate": 0.01
+    },
+    "calibration_selection": {
+      "detector": {
+        "high_alpha": 0.005,
+        "point_threshold": 0.6482913200562569,
+        "low_alpha": 0.05,
+        "low_threshold": 0.1916686491661728,
+        "persistence_window": 3,
+        "required_exceedances": 2
+      },
+      "calibration_alarm_count": 3,
+      "calibration_alarm_rate": 0.008152173913043478,
+      "macro_event_f1": 0.9153387944516481,
+      "macro_incremental_event_recall": 0.9106613756613756,
+      "event_f1_by_type": {
+        "spike": 0.9085340979770851,
+        "dip": 0.8674324213797897,
+        "level_shift": 0.9462630766978593,
+        "drift": 0.8801054018445322,
+        "stuck_at": 0.9743589743589743
+      }
+    }
+  },
+  "counts": {
+    "modeled_sensors": 28,
+    "data_quality_sensors": 30,
+    "measured_test_points": 1346,
+    "forecast_candidates": 19,
+    "missing_measurements": 1534,
+    "forecast_events": 12,
+    "missing_events": 286
+  },
+  "real_labels": null,
+  "limitation": "Ohne bestätigte Ereignis- oder Sensorlabels sind statistische Abweichungen nur Anomalie-Kandidaten."
+}

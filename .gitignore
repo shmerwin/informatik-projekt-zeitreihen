@@ -54,3 +54,4 @@ Thumbs.db
 *.keras
 !saved_models/forecaster/forecaster.keras
 !saved_models/autoencoder/autoencoder.keras
+!saved_models/transformer/transformer.keras
