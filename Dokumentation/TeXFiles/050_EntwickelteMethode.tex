@@ -3,9 +3,9 @@
 \label{ch:EntwickelteMethode}
 
 Dieses Kapitel beschreibt zunächst die reproduzierbare Aufbereitung der
-Rohdaten und anschließend den entwickelten forecast-basierten
-Anomaliedetektor. Methodische Entscheidungen werden von den später berichteten
-Ergebnissen getrennt dargestellt.
+Rohdaten und anschließend die vier untersuchten Anomaliedetektoren.
+Methodische Entscheidungen werden von den später berichteten Ergebnissen
+getrennt dargestellt.
 
 \section{Datengrundlage}
 \label{sec:Methode_Datengrundlage}
@@ -224,11 +224,11 @@ wirken per Konstruktion unauffällig, ein tatsächlicher Sensorausfall stellt
 jedoch selbst ein meldenswertes Ereignis dar. Das Fehlen von Werten folgt
 hier zudem eigenen, teils blockweisen Mustern und trägt damit selbst
 Information \cite{zhang_survey_2024}. Das Feld \texttt{is\_imputed} hält für
-jede Stunde fest, ob sie gemessen oder ergänzt wurde. Der Forecaster verwendet
-ergänzte Werte weiterhin als Kontext eines 24-Stunden-Fensters, überspringt
-jedoch Fenster mit einem ergänzten Zielwert beim Training, bei der Bestimmung
-des Schwellenwerts und bei der Testauswertung. Die beiden besonders kurzen
-Sensorreihen werden wegen ihrer geringen aktiven Länge nicht verwendet.
+jede Stunde fest, ob sie gemessen oder ergänzt wurde. Beide Prognosemodelle
+verwenden ergänzte Werte weiterhin als Kontext eines 24-Stunden-Fensters,
+überspringen jedoch Fenster mit einem ergänzten Zielwert beim Training, bei der
+Bestimmung des Schwellenwerts und bei der Testauswertung. Die beiden besonders
+kurzen Sensorreihen werden wegen ihrer geringen aktiven Länge nicht verwendet.
 
 \section[Forecaster]{Forecast-basierter Anomaliedetektor}
 \label{sec:Methode_Forecaster}
@@ -377,10 +377,75 @@ imputiert ist oder die Besucherzahl die Intervallgrenze um weniger als eine
 Person überschreitet. Der jeweilige Grund wird in der Kandidatendatei
 ausgegeben.
 
+\section[Transformer]{Transformer-Forecaster}
+\label{sec:Methode_Transformer}
+
+Der Transformer löst dieselbe selbstüberwachte Prognoseaufgabe wie der
+LSTM-Forecaster. Er erhält dieselben 24 historischen Stunden, Sensor-IDs,
+Kalendermerkmale und Zielgrößen. Auch Skalierung, zeitliche Teilmengen,
+Quantile, Nichtkonformitätsscore und Alarmkalibrierung bleiben unverändert.
+Dadurch prüft der spätere Vergleich die Architektur und nicht unterschiedliche
+Daten- oder Bewertungsregeln.
+
+Jede Stunde bildet ein eigenes Token. Eine Dense-Projektion überführt dessen
+acht Eingabekanäle in 32 Merkmale; eine feste sinusförmige
+Positionskodierung erhält die Reihenfolge. Das vierdimensionale
+Sensor-Embedding wird auf dieselbe Breite projiziert und jedem Token
+hinzugefügt. Anschließend folgen zwei Pre-LN-Encoderblöcke mit jeweils vier
+Attention-Köpfen, einem Feedforward-Netz der Breite 64, GELU-Aktivierung,
+Residualpfaden und 0{,}10 Dropout. Pre-LN folgt Xiong et al.; Attention,
+Residualpfade und Positionskodierung folgen dem ursprünglichen Transformer
+\cite{xiong2020layernorm,vaswani2017attention}.
+
+Der Zustand des letzten Tokens wird mit dem Sensor-Embedding und den fünf
+bekannten Kalenderwerten der Zielstunde verbunden. Eine Dense-Schicht der
+Breite 32 erzeugt daraus die Prognose. Parallel bildet ein linearer Pfad die 24
+historischen Werte beider Messgrößen direkt auf die zwei Mediane ab. Dieser
+einfache autoregressive Anteil ist durch die Ergebnisse linearer
+Zeitreihenmodelle motiviert \cite{zeng2023transformers}. Die beiden übrigen
+Ausgabewerte werden mit Softplus als nichtnegative Abstände vom Median
+dargestellt. Damit gilt konstruktiv
+$q_{0{,}1}\leq q_{0{,}5}\leq q_{0{,}9}$; ein nachträgliches Sortieren der
+Quantile ist nicht erforderlich.
+
+\begin{table}[htb]
+  \centering
+  \small
+  \caption{Ausgewählte Transformer-Architektur. Eigene Darstellung.}
+  \label{tab:transformer_architektur}
+  \begin{tabularx}{\textwidth}{lrrX}
+    \hline
+    Baustein & Größe & Parameter & Begründung für diesen Datensatz \\
+    \hline
+    Eingabeprojektion & 32 & 288 & Bewahrt alle 24 Stunden als einzelne,
+      kompakte Tokens. \\
+    Sensorkontext & $4\rightarrow32$ & 240 & Entspricht dem kleinen Embedding des
+      LSTM und ergänzt standortspezifische Information. \\
+    Zwei Pre-LN-Blöcke & 4 Köpfe, FFN 64 & 17.152 & Vier Köpfe ergeben bei
+      Modellbreite 32 je acht Merkmale; zwei Blöcke erlauben eine zweite
+      zeitliche Verknüpfung, ohne das Parameterbudget stark zu erhöhen. \\
+    Prognosekopf & Dense 32 & 1.542 & Verbindet letzten Token, Sensor und
+      Zielkalender und erzeugt sechs Quantilwerte. \\
+    Linearer Pfad & $48\rightarrow2$ & 96 & Hält einfache autoregressive
+      Zusammenhänge direkt erreichbar. \\
+    \hline
+  \end{tabularx}
+\end{table}
+
+Insgesamt besitzt das Modell 19.318 trainierbare Parameter. Drei vorab
+festgelegte Kandidaten mit 6.406, 19.318 und 40.902 Parametern variieren
+Modellbreite, Blockzahl, Feedforward-Breite, Dropout und Lernrate. Trainiert
+wird mit AdamW, Gewichtsnachlass $10^{-4}$, auf eins begrenzter Gradientennorm,
+Batchgröße 128, höchstens 80 Epochen und Early Stopping mit Geduld zehn. Der
+Tuning-Loss entscheidet wie beim LSTM ohne Nutzung von Kalibrierungs- oder
+Testdaten. Patching wird nicht verwendet: Sein Vorteil betrifft vor allem
+lange Eingaben, während das 24-Stunden-Fenster kurz ist und einzelne
+Stundensprünge erhalten soll \cite{nie2023patchtst}.
+
 \section[Autoencoder]{Denoising-Autoencoder}
 \label{sec:Methode_Autoencoder}
 
-Der Autoencoder bildet eine zweite, vom Prognosemodell getrennte Methode. Er
+Der Autoencoder bildet eine von den Prognosemodellen getrennte Methode. Er
 erhält ein 24-Stunden-Fenster mit den beiden skalierten Messgrößen und der
 Beobachtungsmaske. Seine Ausgabe rekonstruiert die beiden Messgrößen für alle
 24 Stunden. Der vollständige Aufbau lautet:

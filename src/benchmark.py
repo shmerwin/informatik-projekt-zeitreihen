@@ -67,6 +67,9 @@ def _save_ranking_curves(reports, path):
 def _model_setup(name):
     if name == "forecaster":
         return MODEL_DIR, _forecast_scores
+    if name == "transformer":
+        from .transformer.train import MODEL_DIR as directory
+        return directory, _forecast_scores
     if name == "autoencoder":
         from .autoencoder.train import MODEL_DIR as directory
         from .autoencoder.train import reconstruction_scores
@@ -131,7 +134,8 @@ def _run_one(name, data_path):
 
 
 def run_benchmark(
-    model_names=("forecaster", "autoencoder", "seasonal"), data_path=DATA_PATH,
+    model_names=("forecaster", "transformer", "autoencoder", "seasonal"),
+    data_path=DATA_PATH,
 ):
     """Vergleicht alle Modelle mit denselben Injektionen und Metriken."""
     reports, rows = {}, []
@@ -153,8 +157,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=DATA_PATH)
     parser.add_argument(
-        "--models", nargs="+", choices=["forecaster", "autoencoder", "seasonal"],
-        default=["forecaster", "autoencoder", "seasonal"],
+        "--models", nargs="+",
+        choices=["forecaster", "transformer", "autoencoder", "seasonal"],
+        default=["forecaster", "transformer", "autoencoder", "seasonal"],
     )
     args = parser.parse_args()
     run_benchmark(args.models, args.data)

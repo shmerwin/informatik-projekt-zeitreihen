@@ -1,4 +1,4 @@
-"""Datenlogik für beide Modelle und Hilfsfunktionen des Forecasters."""
+"""Gemeinsame Datenlogik und Hilfsfunktionen der Zeitreihenmodelle."""
 
 import json
 import os
