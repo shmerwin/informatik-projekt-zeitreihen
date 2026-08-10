@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from src.benchmark_evaluation import _add_count_noise
+from src.forecaster.common import CALIBRATION_END
 from src.benchmark_metrics import (
     _aggregate_injection_runs, _event_metrics, _ranking_metrics,
 )
@@ -80,7 +81,11 @@ class MetricTests(unittest.TestCase):
 class NoiseTests(unittest.TestCase):
     def test_count_noise_is_reproducible_and_leaves_imputed_rows_untouched(self):
         frame = pd.DataFrame({
-            "timestamp": pd.date_range("2025-07-09", periods=3, freq="1D", tz="UTC"),
+            "timestamp": [
+                CALIBRATION_END - pd.Timedelta(days=1),
+                CALIBRATION_END + pd.Timedelta(days=1),
+                CALIBRATION_END + pd.Timedelta(days=2),
+            ],
             "name": "Sensor A",
             "visitors": [100, 100, 100],
             "avgDuration": 5.0,

@@ -10,20 +10,23 @@ Alarme und künstlichen Testanomalien beziehen sich aber ausschließlich auf die
 Passantenfrequenz. Die Verfahren verwenden dieselben Zeitabschnitte und
 Entscheidungskriterien, ohne ihre Anomaliewerte miteinander zu vermischen.
 
-Der LSTM erreicht auf der gemeinsamen operativen Testpopulation den höchsten
-Punkt-F1, die höchste AP und die beste Rauschrobustheit. Der Transformer
-prognostiziert genauer und erreicht den höchsten Ereignis-Recall sowie knapp
-den höchsten Ereignis-F1, reagiert aber stärker auf Rauschen. Die saisonale
-Baseline benötigt keine trainierbaren Parameter, bleibt nach Einbeziehung
-ihrer nicht bewertbaren Stunden aber hinter beiden Prognosemodellen. Der
-Autoencoder ist kleiner, bleibt bei den Gesamtkennzahlen jedoch ebenfalls
-dahinter. Die zusätzliche Attention führt somit zu einem konkreten
-Ereignisvorteil, aber nicht zu einer allgemeinen Überlegenheit.
-Als nächste Schritte sind vor allem die vollständige manuelle Prüfung der nach
-dem letzten Training aktuellen Kandidaten, die Klärung der geplanten
-Sensorlaufzeiten, längere Messreihen und ein vollständig neuer Testzeitraum
-sinnvoll. Erst dann sind echte Rolling-Origin-Auswertungen und eine erneute
-Abstimmung von Fensterlänge und Transformer-Größe belastbar. Insbesondere der
-kleine Vorsprung bei den Ereignismetriken muss auf längeren Zeiträumen
-bestätigt werden.
+Der Transformer prognostiziert beide Zielgrößen am genauesten und erreicht auf
+starken synthetischen Anomalien die knapp höchste mittlere ROC-AUC. Der LSTM
+erreicht mit der kalibrierten Alarmregel dagegen den höchsten Punkt- und
+Ereignis-F1. Die saisonale Baseline reagiert am robustesten auf zusätzliches
+Zählwertrauschen, bleibt bei der Erkennung der injizierten Ereignisse aber
+hinter den Prognosemodellen. Trotz einer größeren gewählten Architektur und
+200 ausgeschöpften Epochen erreicht auch der Autoencoder deren
+Gesamtkennzahlen nicht. Zusätzliche Attention verbessert damit Prognose und
+Ranking der Rohscores, führt aber nicht automatisch zur besten binären
+Alarmregel.
+
+Als nächste Schritte sind vor allem die vollständige manuelle Prüfung der 79
+LSTM- und 71 Transformer-Kandidatenereignisse, die Klärung der geplanten
+Sensorlaufzeiten und eine Bestätigung auf einem zeitlich sowie möglichst
+räumlich unabhängigen Datensatz sinnvoll. Weitere Entwicklungsläufe können
+mit einem kleineren Autoencoder-Budget und einem Ein-Seed-Smoke-Benchmark
+beschleunigt werden; die hier berichtete Referenzauswertung sollte für den
+abschließenden Vergleich vollständig bleiben. Erst reale Ereignislabels
+erlauben belastbare Aussagen zur Erkennung unbekannter fachlicher Anomalien.
 

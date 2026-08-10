@@ -71,10 +71,11 @@ achsen[1].set_title("Nach der Bereinigung: gemessene und ergänzte Stunden")
 for ax in achsen:
     ax.set_yticks(range(len(sensoren)))
     ax.set_yticklabels(sensoren, fontsize=6.5)
-xticks = np.arange(0, len(zeitraster), 24)
+tick_abstand = 24 if len(zeitraster) <= 24 * 31 else 24 * 30
+xticks = np.arange(0, len(zeitraster), tick_abstand)
 achsen[1].set_xticks(xticks)
 lokales_raster = zeitraster.tz_convert("Europe/Berlin")
-achsen[1].set_xticklabels([lokales_raster[i].strftime("%d.%m.") for i in xticks],
+achsen[1].set_xticklabels([lokales_raster[i].strftime("%d.%m.%y") for i in xticks],
                           rotation=45, fontsize=8)
 achsen[1].set_xlabel("Lokales Datum (Europe/Berlin)")
 
@@ -142,12 +143,13 @@ speichern(fig, "preproc_imputationsanteil.png")
 # Abbildung 5: Redundanzen im Rohdatensatz
 messungen = df.groupby(["name", "timestamp"]).size()
 fig, ax = plt.subplots(figsize=(8, 4))
-ax.hist(messungen.values, bins=range(1, 12), edgecolor="black",
+max_messungen = int(messungen.max())
+ax.hist(messungen.values, bins=range(1, max_messungen + 2), edgecolor="black",
         align="left", color="blue")
 ax.set_xlabel("Messungen für denselben Sensor in derselben Stunde")
 ax.set_ylabel("Häufigkeit")
 ax.set_title("Redundanzen im Rohdatensatz: oft mehrere Messungen pro Stunde")
-ax.set_xticks(range(1, 11))
+ax.set_xticks(range(1, max_messungen + 1, max(1, max_messungen // 8)))
 speichern(fig, "preproc_mehrfachmessungen.png")
 
 print("\nAlle Abbildungen liegen in:", FIGURES)

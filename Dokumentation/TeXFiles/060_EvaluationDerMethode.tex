@@ -18,25 +18,35 @@ Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
     \hline
     Teilmenge & Beginn & Ende (exklusiv) & Zielpunkte \\
     \hline
-    Training & erster möglicher Zielwert & 08.07.2025 & 4.083 \\
-    Tuning & 08.07.2025 & 09.07.2025 & 318 \\
-    Kalibrierung & 09.07.2025 & 10.07.2025 & 368 \\
-    Test & 10.07.2025 & Reihenende & 1.346 \\
+    Training & erster möglicher Zielwert & 01.05.2026 & 148.045 \\
+    Tuning & 01.05.2026 & 01.06.2026 & 15.159 \\
+    Kalibrierung & 01.06.2026 & 01.07.2026 & 13.142 \\
+    Test & 01.07.2026 & Reihenende & 9.604 \\
     \hline
   \end{tabular}
 \end{table}
 
-Für LSTM-Forecaster, Transformer und Autoencoder werden jeweils drei vorab
-festgelegte kleine Architektur- und Lernratenkombinationen verglichen. Jeder
-Kandidat lernt nur auf dem Trainingsabschnitt; der Tuning-Loss bestimmt die
-Kombination und Epochenzahl. LSTM und Autoencoder erhalten höchstens 20
-Epochen, der Transformer höchstens 80 mit Early Stopping nach zehn
-Epochen ohne Verbesserung. Das ausgewählte Modell wird anschließend für genau
-diese Epochen auf Training und Tuning gemeinsam, also jeweils auf denselben
-4.401 Fenstern mit identischen Zielzeitpunkten, neu trainiert. Erst danach
-bestimmt der Kalibrierungsabschnitt die Schwellen und gegebenenfalls eine
-Persistenzregel. Der Testabschnitt wird für keine dieser Entscheidungen
-verwendet.
+Für LSTM-Forecaster und Autoencoder werden jeweils fünf, für den Transformer
+sechs vorab festgelegte Architektur- und Lernratenkombinationen verglichen.
+Die Kandidaten decken bewusst kleine bis deutlich größere Netze ab. Jeder
+Kandidat lernt nur auf dem Trainingsabschnitt; ausschließlich der
+chronologische Tuning-Loss bestimmt Kombination und Epochenzahl. Um die Suche
+zu verkürzen, erhalten zunächst alle Kandidaten zehn Epochen. Danach wird die
+schlechtere Hälfte verworfen, bis zwei Finalisten verbleiben. Diese beiden
+werden warm gestartet bis zur jeweiligen Obergrenze mit Early Stopping
+weitertrainiert und erst anschließend verglichen. Damit kann ein in der
+Finalrunde später aufholendes Modell noch gewinnen; eine absolute Garantie
+gegen das zu frühe Verwerfen eines anderen Kandidaten böte allerdings nur die
+wesentlich teurere Vollsuche.
+
+Der LSTM-Forecaster erhält höchstens 80 Epochen bei einer Geduld von acht, der
+Transformer 120 bei einer Geduld von zwölf und der Autoencoder 200 bei einer
+Geduld von 15 Epochen. Die Batchgröße beträgt einheitlich 512. Das ausgewählte
+Modell wird anschließend für seine beste Epochenzahl auf Training und Tuning
+gemeinsam, also auf 163.204 Fenstern mit identischen Zielzeitpunkten, neu
+trainiert. Erst danach bestimmt der Kalibrierungsabschnitt die Schwellen und
+gegebenenfalls eine Persistenzregel. Der Testabschnitt wird für keine dieser
+Entscheidungen verwendet.
 
 \section{Bewertung der Prognosegüte}
 
@@ -56,7 +66,7 @@ $\operatorname{MAE}_{\mathrm{Modell,Test}}/
 \operatorname{MAE}_{t-24,\mathrm{Test}}$ zu unterscheiden. Werte unter eins
 bedeuten jeweils eine Verbesserung gegenüber der zugehörigen Skalierung
 beziehungsweise Testbaseline. Auch der direkte Testvergleich verwendet nur
-die 667 Testpunkte mit gemessenem aktuellem Wert und gemessenem $t-24$-Wert.
+die 8.382 Testpunkte mit gemessenem aktuellem Wert und gemessenem $t-24$-Wert.
 
 Für die empirisch kalibrierten Intervalle werden die marginale Abdeckung je
 Zielgröße, die gemeinsame Abdeckung beider Zielgrößen und die mittlere
@@ -147,8 +157,9 @@ Ergänzend prüft ein reproduzierbarer Rauschtest die Alarmstabilität. Für
 gemessene Besucherwerte wird bei 5~\% und 15~\% Stärke mittelwerttreues,
 nichtnegatives Zählwertrauschen aus binomialem Ausdünnen und einer
 Poisson-Ersetzung erzeugt. Berichtet wird der Anteil zusätzlicher Alarme
-gegenüber dem unveränderten Testlauf. Die vier vorhandenen Testtage reichen
-nicht für eine belastbare Rolling-Origin-Neuschätzung.
+gegenüber dem unveränderten Testlauf. Der einmonatige Testblock wird nicht
+noch einmal in kürzere Teilblöcke zur Rolling-Origin-Neuschätzung zerlegt,
+weil dann pro Ursprung nur wenige Ereignisse und Sensorstunden verblieben.
 
 \section{Reproduzierbarkeit}
 
@@ -158,6 +169,7 @@ Diagnoseabbildungen zur Aufbereitung. Die eigentliche Pipeline wird aus dem
 Projektverzeichnis mit
 folgenden Befehlen ausgeführt:
 \begin{verbatim}
+py -3.12 -m src.download_data
 py -3.12 -m src.preprocessing
 py -3.12 -m src.forecaster.train
 py -3.12 -m src.transformer.train

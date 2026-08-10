@@ -12,6 +12,10 @@ plots/
 # lokale Zwischenstände und Sichtprüfungen
 tmp/
 
+# Reproduzierbare, zu grosse Datenartefakte (werden per API erzeugt)
+data/raw/sensordata.json
+data/processed/cleaned_sensordata.json
+
 # LaTeX: Build-Output von TeXiFy
 out/
 auxil/

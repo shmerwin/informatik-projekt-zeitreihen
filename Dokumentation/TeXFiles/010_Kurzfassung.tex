@@ -7,27 +7,29 @@
 
 Diese Arbeit entwickelt ein unüberwachtes Verfahren zur Erkennung auffälliger
 Passantenfrequenzen aus Bad Nauheim. Die Verweildauer bleibt eine zusätzliche
-Modellgröße, löst jedoch keinen Alarm aus. Die Datenaufbereitung fasst
-Mehrfachmessungen zusammen, erkennt einen gemeinsamen Systemausfall und ergänzt
-interne Lücken ohne Informationen aus dem späteren Testzeitraum. Imputierte
-Werte bleiben als gekennzeichneter Kontext erhalten, werden aber nicht als
-Lern- oder Bewertungsziel verwendet.
+Modellgröße, löst jedoch keinen Alarm aus. Der untersuchte API-Snapshot umfasst
+30 Sensoren vom 30.~Juni 2025 bis zum 30.~Juli 2026. Die Datenaufbereitung
+verdichtet 572.461 Rohdatensätze zu 284.745 Sensorstunden, behandelt 18
+gemeinsame Nullausfälle als fehlend und ergänzt 98.137 Stunden ausschließlich
+aus Vergangenheit oder Trainingsprofilen. Imputierte Werte bleiben als
+gekennzeichneter Kontext erhalten, werden aber nicht als Lern- oder
+Bewertungsziel verwendet.
 
-Untersucht werden ein Quantil-LSTM mit 21.366 Parametern, ein kompakter
-Quantil-Transformer mit 19.318 Parametern, ein LSTM-Autoencoder mit 12.994
-Parametern und ein parameterfreier robuster $t-24$-Detektor. Bei starken
-künstlichen Anomalien erreicht der LSTM-Forecaster einen mittleren Punkt-F1
-von 0{,}724 und einen Ereignis-F1 von 0{,}866. Der Transformer erreicht
-0{,}613 beziehungsweise 0{,}871, der Autoencoder 0{,}589 beziehungsweise
-0{,}706 und die saisonale Methode 0{,}504 beziehungsweise 0{,}578. Damit
-erkennt der Transformer geringfügig mehr vollständige Ereignisse, während der
-LSTM einzelne Anomaliepunkte präziser trennt. Die korrigierte
-Ereignisauswertung ordnet jedem injizierten Ereignis höchstens ein
-Alarmereignis zu. Im unveränderten Testabschnitt markieren LSTM und Transformer
-18 beziehungsweise 19 Stunden in 11 beziehungsweise 12 Ereignissen; 1.534
-fehlende Messungen werden getrennt als Datenqualitätsprobleme ausgewiesen.
-Diese Werte zeigen die
-technische Erkennungsfähigkeit für definierte Veränderungen; die nur
-zweiwöchige Datenbasis, überwiegend imputierten Kalibrierungskontexte und
-fehlende vollständige reale Markierungen begrenzen die Übertragbarkeit auf
-unbekannte reale Anomalien.
+Untersucht werden ein Quantil-LSTM mit 21.374 Parametern, ein
+Quantil-Transformer mit 61.062 Parametern, ein LSTM-Autoencoder mit 50.562
+Parametern und ein parameterfreier robuster $t-24$-Detektor. Eine breite,
+chronologische Modellsuche wird per Successive Halving verkürzt; die beiden
+Finalisten jedes neuronalen Verfahrens laufen bis zum vollständigen
+Early-Stopping-Vergleich. Bei starken künstlichen Anomalien erreicht der
+LSTM-Forecaster einen mittleren Punkt-F1 von 0{,}653 und einen Ereignis-F1 von
+0{,}885. Der Transformer erreicht 0{,}603 beziehungsweise 0{,}824, der
+Autoencoder 0{,}459 beziehungsweise 0{,}547 und die saisonale Methode 0{,}326
+beziehungsweise 0{,}478. Der Transformer liefert die genaueren
+Holdout-Prognosen und die knapp höchste mittlere ROC-AUC, während die
+kalibrierte LSTM-Alarmregel den höchsten Ereignis-F1 erzielt. Im unveränderten
+Testabschnitt markieren LSTM und Transformer 105 beziehungsweise 91 Stunden
+in 79 beziehungsweise 71 Ereignissen; 11.636 fehlende Messungen werden in
+1.460 Datenqualitätsereignissen getrennt ausgewiesen. Die synthetischen Tests
+belegen die technische Erkennungsfähigkeit für definierte Veränderungen.
+Fehlende vollständige reale Markierungen und eine räumlich unabhängige externe
+Datenquelle begrenzen weiterhin Aussagen über unbekannte reale Anomalien.

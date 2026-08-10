@@ -9,9 +9,9 @@ dieses regelmäßige Verhalten kennt, fallen Abweichungen davon auf. Eine solche
 Abweichung vom gewohnten Muster nennt man Anomalie.
 
 Grundlage dieser Arbeit ist ein realer Datensatz der Stadt Bad Nauheim. An
-30~Standorten wurde vom 30.~Juni bis zum 13.~Juli 2025 stündlich gezählt, wie
-viele Passanten unterwegs waren. Für jeden Sensor entsteht so eine eigene
-Zeitreihe über zwei Wochen.
+30~Standorten wurde vom 30.~Juni 2025 bis zum 30.~Juli 2026 stündlich gezählt,
+wie viele Passanten unterwegs waren. Für jeden Sensor entsteht so eine eigene
+Zeitreihe über rund 13 Monate.
 
 \section{Motivation}
 \label{sec:Einfuehrung_Motivation}
@@ -31,7 +31,7 @@ Das Ziel ist ein System, das für jeden Sensor das normale Passantenaufkommen
 lernt und auffällige Stunden meldet. Dafür werden ein LSTM-Forecaster, ein
 Transformer-Forecaster und ein LSTM-Autoencoder umgesetzt und anhand derselben
 künstlichen Anomalien und Kennzahlen verglichen. Eine robuste saisonale Methode
-bildet die einfache Baseline. So lässt sich trotz der kurzen Datenreihe
+bildet die einfache Baseline. So lässt sich trotz fehlender realer Anomalielabels
 begründet prüfen, welcher der tatsächlich getesteten Ansätze für diese Daten
 besser geeignet ist.
 

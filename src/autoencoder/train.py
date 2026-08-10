@@ -25,10 +25,14 @@ CANDIDATES = [
     {"lstm_units": 8, "lr": 1e-3, "max_mask_hours": 2},
     {"lstm_units": 16, "lr": 1e-3, "max_mask_hours": 4},
     {"lstm_units": 32, "lr": 5e-4, "max_mask_hours": 4},
+    {"lstm_units": 64, "lr": 3e-4, "max_mask_hours": 6},
+    {"lstm_units": 16, "lr": 3e-4, "max_mask_hours": 8},
 ]
-MAX_EPOCHS = 20
-PATIENCE = 3
+MAX_EPOCHS = 200
+PATIENCE = 15
 BATCH_SIZE = 512
+INITIAL_EPOCHS = 10
+REDUCTION_FACTOR = 2
 
 
 def sequences(data):
@@ -41,7 +45,7 @@ def sequences(data):
 
 
 def add_masking_noise(x, max_hours=4, seed=SEED):
-    """Verdeckt einen gemessenen Block von höchstens vier Stunden."""
+    """Verdeckt einen gemessenen Block von höchstens ``max_hours`` Stunden."""
     noisy = x.copy()
     rng = np.random.default_rng(seed)
     for number, window in enumerate(noisy):
@@ -101,29 +105,38 @@ def train():
     y = x[:, :, :2]
     weights = x[:, :, 2]
 
-    def run_candidate(params):
-        tf.keras.backend.clear_session()
-        set_seed()
-        candidate = build_model(params)
+    train_x = x[masks["train"]]
+    train_y = y[masks["train"]]
+    train_weights = weights[masks["train"]]
+    tune_data = (
+        x[masks["tune"]], y[masks["tune"]], weights[masks["tune"]],
+    )
+
+    def run_candidate(params, candidate, initial_epoch, target_epoch, stop):
+        if candidate is None:
+            set_seed()
+            candidate = build_model(params)
         history = candidate.fit(
-            add_masking_noise(
-                x[masks["train"]], params["max_mask_hours"]
-            ),
-            y[masks["train"]],
-            sample_weight=weights[masks["train"]],
-            validation_data=(
-                x[masks["tune"]], y[masks["tune"]], weights[masks["tune"]]
-            ),
-            epochs=MAX_EPOCHS,
+            add_masking_noise(train_x, params["max_mask_hours"]),
+            train_y,
+            sample_weight=train_weights,
+            validation_data=tune_data,
+            initial_epoch=initial_epoch,
+            epochs=target_epoch,
             batch_size=BATCH_SIZE,
             verbose=0,
-            callbacks=[tf.keras.callbacks.EarlyStopping(
-                monitor="val_loss", patience=PATIENCE, restore_best_weights=True
+            callbacks=[] if not stop else [tf.keras.callbacks.EarlyStopping(
+                monitor="val_loss", patience=PATIENCE, min_delta=1e-4,
+                restore_best_weights=True,
             )],
         )
-        return history, candidate.count_params()
+        return history, candidate, candidate.count_params()
 
-    selected, trials = select_by_validation_loss(CANDIDATES, run_candidate)
+    tf.keras.backend.clear_session()
+    selected, trials = select_by_validation_loss(
+        CANDIDATES, run_candidate, INITIAL_EPOCHS, MAX_EPOCHS,
+        REDUCTION_FACTOR,
+    )
     training = masks["train"] | masks["tune"]
     tf.keras.backend.clear_session()
     set_seed()
@@ -160,7 +173,9 @@ def train():
         "window_size": WINDOW_SIZE,
         "architecture": selected["params"],
         "model_search": {
-            "objective": "minimum tune val_loss",
+            "objective": "successive halving; minimum tune val_loss",
+            "initial_epochs": INITIAL_EPOCHS,
+            "reduction_factor": REDUCTION_FACTOR,
             "max_epochs": MAX_EPOCHS,
             "early_stopping_patience": PATIENCE,
             "trials": trials,
@@ -172,6 +187,13 @@ def train():
             "sample_count": int(training.sum()),
             "batch_size": BATCH_SIZE,
             "max_mask_hours": selected["params"]["max_mask_hours"],
+            "steps_per_epoch": int(
+                (training.sum() + BATCH_SIZE - 1) // BATCH_SIZE
+            ),
+            "optimizer_steps": int(
+                selected["best_epoch"]
+                * ((training.sum() + BATCH_SIZE - 1) // BATCH_SIZE)
+            ),
         },
         "scaler": scaler,
         "error_scale": error_scale.tolist(),
