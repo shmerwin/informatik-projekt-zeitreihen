@@ -249,12 +249,6 @@
 % Zeilenabstand für das ganze Dokument (1.0 = Normalwert):
 \renewcommand{\baselinestretch}{1.0}
 
-%%%%% Acronymdefinitionen einbinden:
-\input{TeXFiles/005_Acronyms}
-
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% hier beginnt das eigentliche Dokument 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -341,12 +335,9 @@
 \input{TeXFiles/070_Ergebnisse}
 \input{TeXFiles/080_Zusammenfassung}
 
-\begin{appendix}
-  \input{TeXFiles/090_Anhang}
-\end{appendix}
-
-\clearpage
-
+% Die Vorlage enthielt einen leeren Programmcode-Anhang und unbenutzte
+% Glossare; beides erzeugte mehrere inhaltslose Seiten.
+\iffalse
 \ifdefined\ThesisLanguageIsEnglish
 \printglossary[type=\acronymtype, title=List of Abbreviations, toctitle=List of Abbreviations]
 \else
@@ -364,6 +355,7 @@
 \fi
 
 %Falls man die Überschrift des Literaturverzeichnisses
+\fi
 %aendern moechte, geht das durch Verwendung der folgenden Zeile:
 %\renewcommand*{\refname}{Literaturverzeichnis}
 

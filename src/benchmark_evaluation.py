@@ -7,7 +7,8 @@ from .benchmark_injections import ANOMALY_TYPES, _inject, _injection_events
 from .benchmark_metrics import _aggregate_injection_runs, _evaluate_injection_run
 from .detector import detector_output
 from .forecaster.common import (
-    CALIBRATION_END, TUNE_END, anomaly_scores, make_windows, predict_quantiles,
+    CALIBRATION_END, TUNE_END, WINDOW_SIZE, anomaly_scores, make_windows,
+    predict_quantiles,
 )
 
 
@@ -58,6 +59,11 @@ def _prepare_injection_runs(
     base, base_score = _period_scores(
         base_data, model, bundle, start, end, score_function
     )
+    timestamps = pd.to_datetime(df["timestamp"], utc=True)
+    relevant = timestamps >= start - pd.Timedelta(hours=WINDOW_SIZE)
+    if end is not None:
+        relevant &= timestamps < end
+    period_df = df.loc[relevant].copy()
     base_keys = [
         (sensor, np.datetime64(time, "us"))
         for sensor, time in zip(base["sensor"], base["time"])
@@ -66,14 +72,15 @@ def _prepare_injection_runs(
     for seed in seeds:
         for type_id, anomaly_type in enumerate(ANOMALY_TYPES):
             events = _injection_events(
-                df, anomaly_type, start, end, seed + 1000 * type_id
+                period_df, anomaly_type, start, end, seed + 1000 * type_id
             )
             strengths = [None] if anomaly_type == "stuck_at" else (
                 [0.5, 1.0, 2.0] if include_mild else [1.0, 2.0]
             )
             for strength in strengths:
                 injected_df, label_keys, realized = _inject(
-                    df, events, anomaly_type, strength or 0, bundle["scaler"]
+                    period_df, events, anomaly_type, strength or 0,
+                    bundle["scaler"],
                 )
                 if not label_keys:
                     continue
@@ -116,6 +123,10 @@ def _add_count_noise(df, strength, seed):
 def _noise_robustness(df, base, model, bundle, score_function=None):
     data, base_score = base["data"], base["score"]
     base_keys = list(zip(base["data"]["sensor"], base["data"]["time"]))
+    timestamps = pd.to_datetime(df["timestamp"], utc=True)
+    period_df = df.loc[
+        timestamps >= CALIBRATION_END - pd.Timedelta(hours=WINDOW_SIZE)
+    ].copy()
     observed = data["observed"]
     base_alarm, _, _ = detector_output(
         base_score, data["sensor"], data["time"], observed, bundle["detector"]
@@ -130,7 +141,7 @@ def _noise_robustness(df, base, model, bundle, score_function=None):
         "strengths": {},
     }
     for number, strength in enumerate(NOISE_STRENGTHS):
-        noisy_df = _add_count_noise(df, strength, NOISE_SEED + number)
+        noisy_df = _add_count_noise(period_df, strength, NOISE_SEED + number)
         noisy_data = make_windows(noisy_df, bundle["scaler"])
         noisy, score = _period_scores(
             noisy_data, model, bundle, CALIBRATION_END, None, score_function

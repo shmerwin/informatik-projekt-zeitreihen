@@ -10,17 +10,16 @@ getrennt dargestellt.
 \section{Datengrundlage}
 \label{sec:Methode_Datengrundlage}
 
-Die Rohdaten liegen in Form einer JSON-Datei mit 17.578 Einzelmessungen vor. Jede
-Messung gehört zu einem von 30 Sensorstandorten in der Innenstadt und im
+Die Rohdaten liegen in Form einer JSON-Datei mit 572.461 Einzelmessungen vor.
+Jede Messung gehört zu einem von 30 Sensorstandorten in der Innenstadt und im
 Kurpark von Bad Nauheim und enthält neben dem Zeitstempel die Anzahl der
 erfassten Passanten (\texttt{visitors}) sowie deren mittlere Verweildauer
-(\texttt{avgDuration}). Der globale Erfassungszeitraum reicht vom 30.~Juni bis
-zum 13.~Juli 2025 und umfasst 335 Stunden. Da nicht alle Sensoren während des
-gesamten Zeitraum Messungen lieferten, gilt ein Sensor ab seiner ersten
-Messung bis zum globalen Datenende als aktiv. Dadurch entstehen 10.043 aktive
-Sensorstunden; nur sieben Kombinationen vor dem jeweiligen Messbeginn liegen
-außerhalb der beobachtbaren Sensorlaufzeit. Ein ausbleibender Datenstrom am
-Reihenende bleibt damit als möglicher Sensorausfall sichtbar.
+(\texttt{avgDuration}). Der globale Erfassungszeitraum reicht vom 30.~Juni
+2025, 00:00~Uhr, bis zum 30.~Juli 2026, 11:00~Uhr UTC und umfasst 9.492
+Stunden. Da nicht alle Sensoren während des gesamten Zeitraums Messungen
+lieferten, gilt ein Sensor ab seiner ersten Messung bis zum globalen Datenende
+als aktiv. Dadurch entstehen 284.745 aktive Sensorstunden. Ein ausbleibender
+Datenstrom am Reihenende bleibt damit als möglicher Sensorausfall sichtbar.
 
 \section{Datenqualität}
 \label{sec:Methode_Datenqualitaet}
@@ -33,8 +32,8 @@ sichtbar. In vorhandenen Rohzeilen fehlen weder \texttt{visitors} noch
 \texttt{avgDuration}; eine ausgefallene Stunde fehlt jedoch als ganze Zeile
 und wäre mit einer reinen Suche nach leeren Einzelwerten nicht erkennbar.
 
-\textbf{Mehrfachmessungen:} Für 4.770 Kombinationen aus Sensor und Stunde
-enthält der Datensatz mehrere Einträge, in der Spitze zehn Messungen für
+\textbf{Mehrfachmessungen:} Für 147.072 Kombinationen aus Sensor und Stunde
+enthält der Datensatz mehrere Einträge, in der Spitze 34 Messungen für
 dieselbe Stunde (Abbildung~\ref{fig:preproc_mehrfach}). Die Werte dieser
 Einträge weichen teilweise voneinander ab, es handelt sich also nicht um
 exakte Kopien. Ohne Bereinigung gingen diese Stunden mehrfach und mit
@@ -44,32 +43,31 @@ widersprüchlichen Werten in das Training ein.
   \centering
   \includegraphics[width=0.75\textwidth]{Figures/preproc_mehrfachmessungen.png}
   \caption{Häufigkeit von Mehrfachmessungen im Rohdatensatz. Für viele
-    Stunden liegen zwei bis vier, vereinzelt bis zu zehn Einträge desselben
-    Sensors vor.}
+    Stunden liegen mehrere, vereinzelt bis zu 34 Einträge desselben Sensors
+    vor.}
   \label{fig:preproc_mehrfach}
 \end{figure}
 
 \textbf{Messlücken:} Nach der Zusammenfassung der Mehrfachmessungen liegen
-zunächst 6.842 eindeutige Sensorstunden vor. Am 5.~Juli um 08:00~Uhr UTC
-melden alle 28 aktiven Sensoren gleichzeitig exakt null Passanten und null
-Verweildauer. Diese gemeinsame Nullmeldung wird als Systemausfall behandelt.
-Damit verbleiben 6.814 gemessene Sensorstunden. Innerhalb der 10.043 aktiven
-Sensorstunden fehlen 3.229 Werte, entsprechend 32{,}2~\%. Sie bilden 841
-zusammenhängende Lücken. Davon umfassen 650 höchstens zwei Stunden; die längste
-Lücke dauert wegen eines bis zum Datenende ausbleibenden Sensors 298 Stunden
-(Abbildung~\ref{fig:preproc_lueckenlaengen}). In 63 Stunden liegt von keinem
-der zu diesem Zeitpunkt aktiven Sensoren eine Messung vor. Dies deutet auf
-gemeinsame Ausfälle der Übertragungsinfrastruktur hin. Die Sensoren
-Kurpark--Eingang Ludwigstraße und Friedrichstraße~1 besitzen mit 36
-beziehungsweise 59 Stunden lediglich kurze gemessene Erfassungszeiträume.
-Ihre folgenden Stunden werden als imputierte Datenqualitätsprobleme erhalten,
-aber wegen zu weniger gemessener Trainingsziele nicht zum Modelllernen genutzt.
+zunächst 187.028 eindeutige Sensorstunden vor. In 18 Stunden melden mindestens
+zehn aktive Sensoren gleichzeitig exakt null Passanten und null Verweildauer.
+Diese gemeinsamen Nullmeldungen mit insgesamt 420 Sensorwerten werden als
+Systemausfälle behandelt. Damit verbleiben 186.608 gemessene Sensorstunden.
+Innerhalb der 284.745 aktiven Sensorstunden fehlen 98.137 Werte, entsprechend
+34{,}46~\%. Sie bilden 16.805 zusammenhängende Lücken. Davon umfassen 11.023
+höchstens zwei Stunden; die längste Lücke dauert wegen eines ausbleibenden
+Sensors 1.248 Stunden (Abbildung~\ref{fig:preproc_lueckenlaengen}). Zusätzlich
+zu den erkannten Nullausfällen existieren 1.791 Stunden, in denen kein zu
+diesem Zeitpunkt aktiver Sensor einen Rohwert liefert. Dies deutet auf
+gemeinsame Ausfälle der Übertragungsinfrastruktur hin. Trotz dieser Lücken
+besitzen alle 30 Sensoren mindestens 72 gemessene Trainingsziele und können in
+die globalen Modelle eingehen.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.8\textwidth]{Figures/preproc_lueckenlaengen.png}
-  \caption{Längenverteilung der 841 Messlücken ab dem ersten Messwert eines
-    Sensors. 650 Lücken umfassen höchstens zwei Stunden; Endausfälle bleiben
+  \caption{Längenverteilung der 16.805 Messlücken ab dem ersten Messwert eines
+    Sensors. 11.023 Lücken umfassen höchstens zwei Stunden; Endausfälle bleiben
     in einer eigenen Klasse sichtbar.}
   \label{fig:preproc_lueckenlaengen}
 \end{figure}
@@ -87,17 +85,17 @@ beobachteten Datenmerkmal abgeleitet.
     \hline
     Analysebefund & Folgerung für die Aufbereitung \\
     \hline
-    Bis zu zehn widersprüchliche Einträge je Sensorstunde &
+    Bis zu 34 widersprüchliche Einträge je Sensorstunde &
       Zusammenfassung zu genau einem Messpunkt je Stunde \\
-    3.229 vollständig fehlende Stunden ab dem jeweiligen Messbeginn &
+    98.137 vollständig fehlende Stunden ab dem jeweiligen Messbeginn &
       Stundenraster, Imputation und dauerhafte Kennzeichnung der Ersatzwerte \\
-    Gleichzeitige Nullmeldung aller 28 aktiven Sensoren &
+    18 gemeinsame Nullmeldungen von jeweils mindestens zehn aktiven Sensoren &
       Als gemeinsamen Systemausfall statt als echtes Passantenminimum behandeln \\
-    650 von 841 Lücken sind höchstens zwei Stunden lang &
+    11.023 von 16.805 Lücken sind höchstens zwei Stunden lang &
       vergangenheitsbasierte Fortschreibung auf zwei Stunden begrenzen \\
     Tages- und Wochenrhythmus sowie stark unterschiedliche Sensorniveaus &
       Kalendermerkmale, Zeitprofile und sensorweise Skalierung verwenden \\
-    Mittlere sensorweise Korrelation von nur 0{,}13 zwischen den Zielgrößen &
+    Mittlere sensorweise Korrelation von nur 0{,}09 zwischen den Zielgrößen &
       \texttt{avgDuration} als zusätzliche Modellgröße beibehalten, den Alarm
       aber auf \texttt{visitors} ausrichten \\
     \hline
@@ -110,9 +108,10 @@ beobachteten Datenmerkmal abgeleitet.
 Alle Einträge derselben Kombination aus Sensor und Stunde werden zu einem
 Messpunkt zusammengefasst. Für die Passantenzahl und die Verweildauer wird
 jeweils der arithmetische Mittelwert gebildet, da keine der mehrfachen
-Messungen als verlässlichere Quelle gekennzeichnet ist. Dadurch entstehen 6.842
-eindeutige Sensorstunden. Die 28 Werte der gemeinsamen Nullmeldung werden
-anschließend als fehlend markiert, sodass 6.814 Stunden als gemessen gelten.
+Messungen als verlässlichere Quelle gekennzeichnet ist. Dadurch entstehen
+187.028 eindeutige Sensorstunden. Die 420 Werte der 18 gemeinsamen
+Nullmeldungen werden anschließend als fehlend markiert, sodass 186.608 Stunden
+als gemessen gelten.
 Allgemein greift diese Regel, wenn mindestens zehn Sensoren Werte liefern und
 sämtliche vorhandenen Werte gleichzeitig null Passanten und null Verweildauer
 melden.
@@ -130,13 +129,13 @@ Lücken werden deshalb vor dem Training aufgefüllt, und zwar für jeden Sensor
 getrennt, damit jeder Standort sein individuelles Niveau und Tagesprofil
 behält. Die zentrale Pipeline verwendet keine lineare Interpolation. Sämtliche
 Profile werden ausschließlich aus ursprünglich gemessenen Werten vor dem
-8.~Juli 2025, 00:00~Uhr UTC, geschätzt; Validierungs-, Kalibrierungs- und
+1.~Mai 2026, 00:00~Uhr UTC, geschätzt; Tuning-, Kalibrierungs- und
 Testwerte gehen damit nicht in die Profilbildung ein. Wochentag und Stunde
 werden in der lokalen Zeitzone \texttt{Europe/Berlin} bestimmt. Das Verfahren
 arbeitet in vier aufeinanderfolgenden Stufen.
 
-\textbf{Stufe 1, vergangenheitsbasierte Fortschreibung:} Da 650 der 841
-Lücken und damit 77{,}3~\% höchstens zwei Stunden dauern, wird die
+\textbf{Stufe 1, vergangenheitsbasierte Fortschreibung:} Da 11.023 der 16.805
+Lücken und damit 65{,}6~\% höchstens zwei Stunden dauern, wird die
 Fortschreibung auf genau diesen Zeitraum begrenzt. Für die ersten zwei Stunden
 jeder Lücke wird der letzte zuvor gemessene Wert desselben Sensors übernommen.
 Mit $t^{-}$ als Zeitpunkt der letzten Messung gilt
@@ -148,24 +147,24 @@ Sie benötigt keinen nachfolgenden Messwert und verhindert dadurch, dass ein
 späteres Prognoseziel in einen früheren Modellkontext zurückgespiegelt wird.
 Der Preis ist eine kurzfristig konstante Fortsetzung; die Regel stellt daher
 einen transparenten Kompromiss und kein allgemein optimales
-Imputationsverfahren dar. Auf diese Weise werden 1.216 Sensorstunden ergänzt.
+Imputationsverfahren dar. Auf diese Weise werden 24.929 Sensorstunden ergänzt.
 
 \textbf{Stufe 2, Wochentag-Stunden-Profil:} Für die verbleibenden Lücken wird
 der Mittelwert desselben Sensors am gleichen lokalen Wochentag und zur gleichen
 lokalen Stunde aus gemessenen Trainingswerten eingesetzt. Historische
 Zeitprofile erhalten tages- und wochenzeitabhängige Strukturen und werden auch
 für fehlende Verkehrszähldaten untersucht \cite{sun_traffic_2022}. Diese Stufe
-füllt 1.386 Sensorstunden.
+füllt 73.208 Sensorstunden.
 
 \textbf{Stufe 3, Stundenprofil:} Existiert für eine Kombination aus Wochentag
 und Stunde keine Trainingsreferenz, wird der Mittelwert des Sensors zur
-gleichen lokalen Uhrzeit über alle Trainingstage verwendet. Dies betrifft 585
-Sensorstunden.
+gleichen lokalen Uhrzeit über alle Trainingstage verwendet. Im Jahresdatensatz
+ist diese Rückfallstufe nicht erforderlich.
 
 \textbf{Stufe 4, Sensormittel:} Fehlt auch für die betreffende Uhrzeit eine
 Referenz, wird der Mittelwert sämtlicher gemessener Trainingswerte dieses
-Sensors eingesetzt. Diese Rückfallstufe betrifft 42 Sensorstunden. Damit
-werden alle 3.229 Lücken ab der ersten Messung geschlossen; Zeiten vor der
+Sensors eingesetzt. Auch diese Rückfallstufe ist nicht erforderlich. Damit
+werden alle 98.137 Lücken ab der ersten Messung geschlossen; Zeiten vor der
 ersten Messung bleiben außerhalb des Datensatzes. Ergänzte Werte nach der
 letzten Messung bleiben ausdrücklich als Datenqualitätsproblem markiert.
 
@@ -197,10 +196,10 @@ den ergänzten Anteil innerhalb der aktiven Zeit jedes Sensors zusammen.
 Jede Imputation verändert die Daten. Mittelwertbasierte Verfahren können den
 Verlauf glätten und die Varianz verringern
 \cite{zhang_survey_2024,shafique_hourly_2022}. Im vorliegenden Datensatz ändert
-sich der Mittelwert der Passantenzahl je Sensor um höchstens 10{,}29~\%. Die
+sich der Mittelwert der Passantenzahl je Sensor um höchstens 22{,}88~\%. Die
 kleinste Korrelation zwischen dem ausschließlich aus gemessenen Werten und dem
 aus allen bereinigten Werten gebildeten stündlichen Tagesprofil beträgt
-0{,}9843. Diese Kennzahlen prüfen Niveau und Profil, ersetzen aber keine
+0{,}9973. Diese Kennzahlen prüfen Niveau und Profil, ersetzen aber keine
 Fehleranalyse gegen unbekannte wahre Werte in den Lücken.
 
 Die zweistündige Fortschreibung verwendet zu jedem Zeitpunkt nur die
@@ -227,8 +226,8 @@ Information \cite{zhang_survey_2024}. Das Feld \texttt{is\_imputed} hält für
 jede Stunde fest, ob sie gemessen oder ergänzt wurde. Beide Prognosemodelle
 verwenden ergänzte Werte weiterhin als Kontext eines 24-Stunden-Fensters,
 überspringen jedoch Fenster mit einem ergänzten Zielwert beim Training, bei der
-Bestimmung des Schwellenwerts und bei der Testauswertung. Die beiden besonders
-kurzen Sensorreihen werden wegen ihrer geringen aktiven Länge nicht verwendet.
+Bestimmung des Schwellenwerts und bei der Testauswertung. Alle 30 Sensorreihen
+erfüllen im Jahresdatensatz die Mindestmenge gemessener Trainingsziele.
 
 \section[Forecaster]{Forecast-basierter Anomaliedetektor}
 \label{sec:Methode_Forecaster}
@@ -238,11 +237,10 @@ kurzen Sensorreihen werden wegen ihrer geringen aktiven Länge nicht verwendet.
 Der Forecaster lernt selbstüberwacht, aus den jeweils vorhergehenden 24 Stunden
 die nächste Stunde vorherzusagen. Die nachgelagerte Anomalieentscheidung ist
 unüberwacht, da weder das Modelltraining noch die Kalibrierung reale
-Anomalieklassen verwenden. Ein einziges globales Modell wird über 28 Sensoren
-trainiert. Zwei Sensoren werden ausgeschlossen, weil vor dem Ende des
-Trainingsabschnitts weniger als 72 gemessene Zielstunden vorliegen. Ihre
-fehlenden Stunden werden dennoch gemeinsam mit denen aller übrigen Sensoren
-als Datenqualitätsereignisse ausgegeben.
+Anomalieklassen verwenden. Ein einziges globales Modell wird über alle 30
+Sensoren trainiert. Jeder Sensor besitzt vor dem Ende des Trainingsabschnitts
+mindestens 72 gemessene Zielstunden. Fehlende Stunden werden unabhängig davon
+für alle Sensoren als Datenqualitätsereignisse ausgegeben.
 
 Beide Zielgrößen werden zunächst mit $\log(1+x)$ transformiert. Danach erfolgt
 eine robuste Skalierung je Sensor $s$ und Merkmal $f$:
@@ -252,7 +250,7 @@ eine robuste Skalierung je Sensor $s$ und Merkmal $f$:
 \end{equation}
 Median und Interquartilsabstand werden ausschließlich aus gemessenen
 Trainingswerten bestimmt. Die sensorweisen Mittelwerte der Passantenzahl
-reichen in der Analyse von etwa 9{,}1 bis 262{,}5 Personen pro Stunde; die
+reichen in der Analyse von etwa 12{,}3 bis 259{,}0 Personen pro Stunde; die
 sensorweise Skalierung verhindert, dass diese Niveauunterschiede die
 Modellierung dominieren. Jedes historische Zeitfenster besitzt acht Kanäle:
 die beiden skalierten Messgrößen, eine Maske für gemessen beziehungsweise
@@ -281,7 +279,7 @@ der Quantilausgabe handelt es sich jedoch nicht um eine DeepAR-Implementierung.
 Das Ausgabefeld enthält für \texttt{visitors} und \texttt{avgDuration} jeweils
 die Quantile $q_{0{,}1}$, $q_{0{,}5}$ und $q_{0{,}9}$. Trainiert wird mit der
 über beide Zielgrößen und Quantile gemittelten Pinball-Loss-Funktion
-\cite{koenker1978regression}. Drei vorab festgelegte kompakte Kandidaten
+\cite{koenker1978regression}. Fünf vorab festgelegte Kandidaten
 variieren LSTM- und Dense-Breite, Embedding, Dropout und Lernrate. Der kleinste
 Tuning-Loss entscheidet, ohne den Testabschnitt zu verwenden.
 Tabelle~\ref{tab:forecaster_architektur} zeigt die ausgewählte Konfiguration.
@@ -298,9 +296,9 @@ Die Prognose der Verweildauer bleibt eine Hilfsaufgabe; nur die
     Baustein & Größe & Parameter & Begründung für diesen Datensatz \\
     \hline
     LSTM & 64 & 18.688 & Verdichtet ein Fenster aus 24 Stunden und acht
-      Kanälen. Wegen nur 4.083 gemessener Trainingsziele bleibt es bei einer
-      rekurrenten Schicht. \\
-    Sensor-Embedding & 4 & 112 & Bildet 28 Sensoren mit $28\cdot4$ Werten als
+      Kanälen. Eine einzelne rekurrente Schicht hält die Architektur trotz
+      148.045 Trainingszielen kompakt. \\
+    Sensor-Embedding & 4 & 120 & Bildet 30 Sensoren mit $30\cdot4$ Werten als
       kleine Zusatzinformation ab. \\
     Dense & 32 & 2.368 & Mischt den 73-dimensionalen Vektor aus LSTM,
       Embedding und fünf Kalenderwerten und verkleinert ihn auf 32 Werte. \\
@@ -312,13 +310,14 @@ Die Prognose der Verweildauer bleibt eine Hilfsaufgabe; nur die
   \end{tabularx}
 \end{table}
 
-Insgesamt besitzt das ausgewählte Modell 21.366 trainierbare Parameter. Die
-Suche umfasst bewusst nur drei Kombinationen; breitere oder gestapelte
-LSTM-Schichten sind wegen des kurzen Messzeitraums nicht begründet. Die
-Kandidaten werden höchstens 20 Epochen mit Batchgröße 512 auf dem
-Trainingsabschnitt gelernt und nach Tuning-Loss früh gestoppt. Die ausgewählte
-Konfiguration wird für ihre beste Epochenzahl, hier 20, auf Training und Tuning
-neu trainiert; Kalibrierungs- und Testdaten bleiben dabei unberührt.
+Insgesamt besitzt das ausgewählte Modell 21.374 trainierbare Parameter. Fünf
+Kombinationen reichen von 16 bis 128 LSTM-Einheiten und variieren zusätzlich
+Dense-Breite, Embedding, Dropout und Lernrate. Nach zunächst zehn Epochen
+reduziert Successive Halving die Menge von fünf auf drei und dann zwei
+Finalisten. Beide Finalisten laufen warm gestartet mit einer Obergrenze von 80
+Epochen und Early-Stopping-Geduld acht. Die ausgewählte Konfiguration wird für
+ihre beste Epochenzahl, hier 73, mit Batchgröße 512 auf Training und Tuning neu
+trainiert; Kalibrierungs- und Testdaten bleiben dabei unberührt.
 
 \subsection{Nichtkonformitätsscore und Intervallkalibrierung}
 
@@ -333,7 +332,7 @@ vorhergesagten Quantilintervall relativ zu dessen Breite bewertet:
 Ein negativer Wert liegt innerhalb des ursprünglichen Quantilintervalls; ein
 positiver Wert misst die relative Überschreitung. Die Fehler beider Größen
 werden zur Diagnose ausgegeben; allein der Besucherfehler $s_t$ steuert den
-Alarm. Aus 368 gemessenen Punkten
+Alarm. Aus 13.142 gemessenen Punkten
 des getrennten Kalibrierungsabschnitts wird bei nominal
 $\alpha=0{,}01$ eine endliche empirische Quantilschwelle bestimmt. Das
 Verfahren ist an Conformalized Quantile Regression angelehnt
@@ -388,18 +387,18 @@ Dadurch prüft der spätere Vergleich die Architektur und nicht unterschiedliche
 Daten- oder Bewertungsregeln.
 
 Jede Stunde bildet ein eigenes Token. Eine Dense-Projektion überführt dessen
-acht Eingabekanäle in 32 Merkmale; eine feste sinusförmige
-Positionskodierung erhält die Reihenfolge. Das vierdimensionale
+acht Eingabekanäle in 48 Merkmale; eine feste sinusförmige
+Positionskodierung erhält die Reihenfolge. Das achtdimensionale
 Sensor-Embedding wird auf dieselbe Breite projiziert und jedem Token
 hinzugefügt. Anschließend folgen zwei Pre-LN-Encoderblöcke mit jeweils vier
-Attention-Köpfen, einem Feedforward-Netz der Breite 64, GELU-Aktivierung,
-Residualpfaden und 0{,}10 Dropout. Pre-LN folgt Xiong et al.; Attention,
+Attention-Köpfen, einem Feedforward-Netz der Breite 192, GELU-Aktivierung,
+Residualpfaden und 0{,}15 Dropout. Pre-LN folgt Xiong et al.; Attention,
 Residualpfade und Positionskodierung folgen dem ursprünglichen Transformer
 \cite{xiong2020layernorm,vaswani2017attention}.
 
 Der Zustand des letzten Tokens wird mit dem Sensor-Embedding und den fünf
 bekannten Kalenderwerten der Zielstunde verbunden. Eine Dense-Schicht der
-Breite 32 erzeugt daraus die Prognose. Parallel bildet ein linearer Pfad die 24
+Breite 48 erzeugt daraus die Prognose. Parallel bildet ein linearer Pfad die 24
 historischen Werte beider Messgrößen direkt auf die zwei Mediane ab. Dieser
 einfache autoregressive Anteil ist durch die Ergebnisse linearer
 Zeitreihenmodelle motiviert \cite{zeng2023transformers}. Die beiden übrigen
@@ -417,14 +416,14 @@ Quantile ist nicht erforderlich.
     \hline
     Baustein & Größe & Parameter & Begründung für diesen Datensatz \\
     \hline
-    Eingabeprojektion & 32 & 288 & Bewahrt alle 24 Stunden als einzelne,
+    Eingabeprojektion & 48 & 432 & Bewahrt alle 24 Stunden als einzelne,
       kompakte Tokens. \\
-    Sensorkontext & $4\rightarrow32$ & 240 & Entspricht dem kleinen Embedding des
-      LSTM und ergänzt standortspezifische Information. \\
-    Zwei Pre-LN-Blöcke & 4 Köpfe, FFN 64 & 17.152 & Vier Köpfe ergeben bei
-      Modellbreite 32 je acht Merkmale; zwei Blöcke erlauben eine zweite
+    Sensorkontext & $8\rightarrow48$ & 624 & Embedding und Projektion ergänzen
+      standortspezifische Information in jedem Token. \\
+    Zwei Pre-LN-Blöcke & 4 Köpfe, FFN 192 & 56.544 & Vier Köpfe ergeben bei
+      Modellbreite 48 je zwölf Merkmale; zwei Blöcke erlauben eine zweite
       zeitliche Verknüpfung, ohne das Parameterbudget stark zu erhöhen. \\
-    Prognosekopf & Dense 32 & 1.542 & Verbindet letzten Token, Sensor und
+    Prognosekopf & Dense 48 & 3.366 & Verbindet letzten Token, Sensor und
       Zielkalender und erzeugt sechs Quantilwerte. \\
     Linearer Pfad & $48\rightarrow2$ & 96 & Hält einfache autoregressive
       Zusammenhänge direkt erreichbar. \\
@@ -432,13 +431,15 @@ Quantile ist nicht erforderlich.
   \end{tabularx}
 \end{table}
 
-Insgesamt besitzt das Modell 19.318 trainierbare Parameter. Drei vorab
-festgelegte Kandidaten mit 6.406, 19.318 und 40.902 Parametern variieren
-Modellbreite, Blockzahl, Feedforward-Breite, Dropout und Lernrate. Trainiert
-wird mit AdamW, Gewichtsnachlass $10^{-4}$, auf eins begrenzter Gradientennorm,
-Batchgröße 128, höchstens 80 Epochen und Early Stopping mit Geduld zehn. Der
-Tuning-Loss entscheidet wie beim LSTM ohne Nutzung von Kalibrierungs- oder
-Testdaten. Patching wird nicht verwendet: Sein Vorteil betrifft vor allem
+Insgesamt besitzt das Modell 61.062 trainierbare Parameter. Sechs vorab
+festgelegte Kandidaten mit 3.074 bis 156.886 Parametern variieren
+Modellbreite, Kopf- und Blockzahl, Feedforward- und Dense-Breite, Embedding,
+Dropout und Lernrate. Successive Halving reduziert sie nach jeweils zehn und
+20 Epochen auf zwei Finalisten. Diese laufen warm gestartet bis höchstens 120
+Epochen mit Early-Stopping-Geduld zwölf. Trainiert wird mit AdamW,
+Gewichtsnachlass $10^{-4}$, auf eins begrenzter Gradientennorm und Batchgröße
+512. Der Tuning-Loss entscheidet wie beim LSTM ohne Nutzung von
+Kalibrierungs- oder Testdaten. Patching wird nicht verwendet: Sein Vorteil betrifft vor allem
 lange Eingaben, während das 24-Stunden-Fenster kurz ist und einzelne
 Stundensprünge erhalten soll \cite{nie2023patchtst}.
 
@@ -450,9 +451,9 @@ erhält ein 24-Stunden-Fenster mit den beiden skalierten Messgrößen und der
 Beobachtungsmaske. Seine Ausgabe rekonstruiert die beiden Messgrößen für alle
 24 Stunden. Der vollständige Aufbau lautet:
 \begin{equation}
- \operatorname{Input}(24,3) \rightarrow \operatorname{LSTM}(32)
+ \operatorname{Input}(24,3) \rightarrow \operatorname{LSTM}(64)
  \rightarrow \operatorname{RepeatVector}(24)
- \rightarrow \operatorname{LSTM}(32)
+ \rightarrow \operatorname{LSTM}(64)
  \rightarrow \operatorname{Dense}(2).
 \end{equation}
 Die einzelne LSTM-Schicht auf beiden Seiten des komprimierten Zustands folgt
@@ -471,34 +472,36 @@ an den vorliegenden Datensatz angepassten Größen begründet.
     \hline
     Eingabe & $24\times3$ & 0 & Ein Tag mit zwei Messgrößen und einer
       Beobachtungsmaske. \\
-    Encoder-LSTM & 32 & 4.608 & Verdichtet das 24-Stunden-Fenster auf 32
+    Encoder-LSTM & 64 & 17.408 & Verdichtet das 24-Stunden-Fenster auf 64
       Zustandswerte. \\
     RepeatVector & 24 & 0 & Stellt wieder genau die ursprüngliche Länge von
       24 Stunden bereit. \\
-    Decoder-LSTM & 32 & 8.320 & Verwendet dieselbe Breite wie der Encoder und
+    Decoder-LSTM & 64 & 33.024 & Verwendet dieselbe Breite wie der Encoder und
       führt dadurch keine weitere frei gewählte Größe ein. \\
-    Dense & 2 & 66 & Durch die Rekonstruktion von \texttt{visitors} und
+    Dense & 2 & 130 & Durch die Rekonstruktion von \texttt{visitors} und
       \texttt{avgDuration} vollständig vorgegeben. \\
     \hline
   \end{tabularx}
 \end{table}
 
-Das Netz besitzt insgesamt 12.994 trainierbare Parameter. Verglichen werden
-nur die vorab festgelegten Breiten 8, 16 und 32; der Tuning-Loss wählt 32 bei
-einer Lernrate von 0{,}0005. Eine zusätzliche versteckte Dense-Schicht ist
-nicht nötig, da die vorhandene Rekonstruktion bereits beide Messgrößen direkt
-aus dem Decoderzustand erzeugt.
+Das Netz besitzt insgesamt 50.562 trainierbare Parameter. Fünf vorab
+festgelegte Kandidaten variieren LSTM-Breite, Lernrate und maximale
+Maskierungslänge. Successive Halving reduziert sie nach zehn und 20 Epochen
+auf zwei vollständig trainierte Finalisten. Der Tuning-Loss wählt 64 Einheiten, eine Lernrate von
+0{,}0003 und höchstens sechs maskierte Stunden. Eine zusätzliche versteckte
+Dense-Schicht ist nicht nötig, da die vorhandene Rekonstruktion bereits beide
+Messgrößen direkt aus dem Decoderzustand erzeugt.
 
 Während des Trainings wird in jedem Fenster ein zusammenhängender Block von
-einer bis vier wirklich gemessenen Stunden verdeckt. Damit bleiben selbst im
-größten Fall 20 der 24 Stunden als zeitlicher Kontext erhalten. Die zugehörigen
+einer bis sechs wirklich gemessenen Stunden verdeckt. Damit bleiben selbst im
+größten Fall 18 der 24 Stunden als zeitlicher Kontext erhalten. Die zugehörigen
 Eingabewerte und ihre Maske werden auf null gesetzt, das Rekonstruktionsziel
 bleibt jedoch unverändert. Diese einfache Datenerweiterung folgt dem
 Denoising-Prinzip \cite{vincent2008denoising}. Künstliche Spikes, Dips oder
 andere Testanomalien werden nicht für das Training verwendet.
 
-Trainiert wird mit Adam, Batchgröße 512, höchstens 20 Epochen und Early
-Stopping. Die Huber-Fehlerfunktion verringert den Einfluss einzelner großer,
+Trainiert wird mit Adam, Batchgröße 512, höchstens 200 Epochen und
+Early-Stopping-Geduld 15. Die Huber-Fehlerfunktion verringert den Einfluss einzelner großer,
 im unbeschrifteten Training möglicherweise bereits vorhandener Abweichungen.
 Ergänzte Werte dürfen als markierter Kontext eingehen, besitzen im
 Rekonstruktionsfehler aber das Gewicht null. Das Modell lernt sie daher nicht

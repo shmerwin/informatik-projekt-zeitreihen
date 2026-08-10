@@ -24,16 +24,24 @@ from ..forecaster.common import (
 
 MODEL_DIR = ROOT / "saved_models" / "transformer"
 CANDIDATES = [
+    {"d_model": 16, "heads": 2, "blocks": 1, "ff_dim": 32,
+     "dense": 16, "embedding": 2, "dropout": 0.05, "lr": 1e-3},
     {"d_model": 24, "heads": 4, "blocks": 1, "ff_dim": 48,
      "dense": 24, "embedding": 4, "dropout": 0.10, "lr": 1e-3},
     {"d_model": 32, "heads": 4, "blocks": 2, "ff_dim": 64,
      "dense": 32, "embedding": 4, "dropout": 0.10, "lr": 1e-3},
-    {"d_model": 48, "heads": 4, "blocks": 2, "ff_dim": 96,
-     "dense": 32, "embedding": 4, "dropout": 0.15, "lr": 5e-4},
+    {"d_model": 48, "heads": 4, "blocks": 2, "ff_dim": 192,
+     "dense": 48, "embedding": 8, "dropout": 0.15, "lr": 5e-4},
+    {"d_model": 64, "heads": 8, "blocks": 2, "ff_dim": 256,
+     "dense": 64, "embedding": 8, "dropout": 0.20, "lr": 3e-4},
+    {"d_model": 64, "heads": 4, "blocks": 3, "ff_dim": 256,
+     "dense": 64, "embedding": 8, "dropout": 0.30, "lr": 2e-4},
 ]
-MAX_EPOCHS = 80
-PATIENCE = 10
-BATCH_SIZE = 128
+MAX_EPOCHS = 120
+PATIENCE = 12
+BATCH_SIZE = 512
+INITIAL_EPOCHS = 10
+REDUCTION_FACTOR = 2
 
 
 def _positions(length, width):
@@ -137,29 +145,38 @@ def train():
         if not masks[split].any():
             raise ValueError(f"Split '{split}' enthält keine gemessenen Ziele")
 
-    def run_candidate(params):
-        tf.keras.backend.clear_session()
-        set_seed()
-        candidate = build_model(
-            len(scaler["sensors"]), data["history"].shape[-1], params
-        )
+    train_inputs = model_inputs(data, masks["train"])
+    train_targets = data["y_scaled"][masks["train"]]
+    tune_data = (
+        model_inputs(data, masks["tune"]), data["y_scaled"][masks["tune"]],
+    )
+
+    def run_candidate(params, candidate, initial_epoch, target_epoch, stop):
+        if candidate is None:
+            set_seed()
+            candidate = build_model(
+                len(scaler["sensors"]), data["history"].shape[-1], params
+            )
         history = candidate.fit(
-            model_inputs(data, masks["train"]),
-            data["y_scaled"][masks["train"]],
-            validation_data=(
-                model_inputs(data, masks["tune"]),
-                data["y_scaled"][masks["tune"]],
-            ),
-            epochs=MAX_EPOCHS,
+            train_inputs,
+            train_targets,
+            validation_data=tune_data,
+            initial_epoch=initial_epoch,
+            epochs=target_epoch,
             batch_size=BATCH_SIZE,
             verbose=0,
-            callbacks=[keras.callbacks.EarlyStopping(
-                monitor="val_loss", patience=PATIENCE, restore_best_weights=True
+            callbacks=[] if not stop else [keras.callbacks.EarlyStopping(
+                monitor="val_loss", patience=PATIENCE, min_delta=1e-4,
+                restore_best_weights=True,
             )],
         )
-        return history, candidate.count_params()
+        return history, candidate, candidate.count_params()
 
-    selected, trials = select_by_validation_loss(CANDIDATES, run_candidate)
+    tf.keras.backend.clear_session()
+    selected, trials = select_by_validation_loss(
+        CANDIDATES, run_candidate, INITIAL_EPOCHS, MAX_EPOCHS,
+        REDUCTION_FACTOR,
+    )
     training = masks["train"] | masks["tune"]
     tf.keras.backend.clear_session()
     set_seed()
@@ -194,7 +211,9 @@ def train():
         "epochs": selected["best_epoch"],
         "parameters": model.count_params(),
         "model_search": {
-            "objective": "minimum tune val_loss",
+            "objective": "successive halving; minimum tune val_loss",
+            "initial_epochs": INITIAL_EPOCHS,
+            "reduction_factor": REDUCTION_FACTOR,
             "max_epochs": MAX_EPOCHS,
             "early_stopping_patience": PATIENCE,
             "trials": trials,
@@ -203,6 +222,13 @@ def train():
         "training": {
             "sample_count": int(training.sum()),
             "batch_size": BATCH_SIZE,
+            "steps_per_epoch": int(
+                (training.sum() + BATCH_SIZE - 1) // BATCH_SIZE
+            ),
+            "optimizer_steps": int(
+                selected["best_epoch"]
+                * ((training.sum() + BATCH_SIZE - 1) // BATCH_SIZE)
+            ),
         },
         "scaler": scaler,
         "calibrator": calibrator,

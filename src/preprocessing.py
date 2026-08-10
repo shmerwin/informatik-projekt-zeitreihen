@@ -7,8 +7,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .data_config import TRAIN_END_UTC
 
-TRAIN_END = pd.Timestamp("2025-07-08", tz="UTC")
+TRAIN_END = pd.Timestamp(TRAIN_END_UTC)
 FEATURES = ["visitors", "avgDuration"]
 
 
@@ -145,8 +146,10 @@ def save_processed_data(filepath, output_path=None):
     # pandas ersetzt hier NaN aus optionalen Metadaten durch null.
     records = json.loads(export.to_json(orient="records"))
     with open(output_path, "w", encoding="utf-8") as datei:
-        json.dump({"sensordata": records}, datei, ensure_ascii=False, indent=2,
-                  allow_nan=False)
+        json.dump(
+            {"sensordata": records}, datei, ensure_ascii=False,
+            separators=(",", ":"), allow_nan=False,
+        )
     return sauber
 
 

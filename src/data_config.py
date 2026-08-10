@@ -1,0 +1,7 @@
+"""Gemeinsame Zeitgrenzen für Download, Preprocessing und Modelle."""
+
+
+DATA_START_UTC = "2025-06-30T00:00:00Z"
+TRAIN_END_UTC = "2026-05-01T00:00:00Z"
+TUNE_END_UTC = "2026-06-01T00:00:00Z"
+CALIBRATION_END_UTC = "2026-07-01T00:00:00Z"

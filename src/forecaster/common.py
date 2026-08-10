@@ -12,6 +12,10 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+from ..data_config import (
+    CALIBRATION_END_UTC, TRAIN_END_UTC, TUNE_END_UTC,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_PATH = ROOT / "data" / "processed" / "cleaned_sensordata.json"
@@ -20,9 +24,9 @@ FEATURES = ["visitors", "avgDuration"]
 ANOMALY_FEATURE = "visitors"
 WINDOW_SIZE = 24
 QUANTILES = [0.1, 0.5, 0.9]
-TRAIN_END = pd.Timestamp("2025-07-08", tz="UTC")
-TUNE_END = pd.Timestamp("2025-07-09", tz="UTC")
-CALIBRATION_END = pd.Timestamp("2025-07-10", tz="UTC")
+TRAIN_END = pd.Timestamp(TRAIN_END_UTC)
+TUNE_END = pd.Timestamp(TUNE_END_UTC)
+CALIBRATION_END = pd.Timestamp(CALIBRATION_END_UTC)
 ALPHA = 0.01
 SEED = 42
 
@@ -31,30 +35,133 @@ def set_seed(seed=SEED):
     tf.keras.utils.set_random_seed(seed)
 
 
-def select_by_validation_loss(candidates, run):
-    """Testet feste Kandidaten und wählt ausschließlich den kleinsten Tune-Loss."""
-    trials = []
-    for params in candidates:
-        history, parameters = run(dict(params))
+def select_by_validation_loss(
+    candidates, run, initial_epochs, max_epochs, reduction_factor=2,
+):
+    """Wählt per Successive Halving ausschließlich nach chronologischem Tune-Loss.
+
+    ``run`` erhält ``(params, model, initial_epoch, target_epoch,
+    early_stopping)``. Die Modellinstanz wird für überlebende Kandidaten
+    wiederverwendet. Nach dem Halbieren laufen die besten zwei Kandidaten mit
+    Early Stopping bis ``max_epochs``, bevor der Sieger bestimmt wird.
+    """
+    candidates = [dict(params) for params in candidates]
+    if not candidates:
+        raise ValueError("Modellsuche benötigt mindestens einen Kandidaten")
+    if not 0 < initial_epochs <= max_epochs:
+        raise ValueError("Epochenbudgets müssen 0 < initial <= max erfüllen")
+    if reduction_factor < 2:
+        raise ValueError("reduction_factor muss mindestens 2 sein")
+
+    states = [{
+        "number": number,
+        "params": params,
+        "model": None,
+        "parameters": None,
+        "losses": [],
+        "stages": [],
+        "pruned_after_round": None,
+    } for number, params in enumerate(candidates, 1)]
+
+    def train_stage(state, target_epoch, round_number, early_stopping=False):
+        initial_epoch = len(state["losses"])
+        history, model, parameters = run(
+            dict(state["params"]), state["model"], initial_epoch,
+            target_epoch, early_stopping,
+        )
         values = np.asarray(history.history.get("val_loss", []), float)
         if not len(values) or not np.isfinite(values).all():
-            raise ValueError("Modellsuche benötigt endliche val_loss-Werte")
-        best = int(np.argmin(values))
-        trials.append({
-            "params": dict(params),
-            "best_epoch": best + 1,
+            raise ValueError(
+                f"Kandidat {state['number']} benötigt endliche val_loss-Werte"
+            )
+        if not early_stopping and len(values) != target_epoch - initial_epoch:
+            raise ValueError(
+                f"Kandidat {state['number']} hat sein Halving-Budget nicht erfüllt"
+            )
+        parameters = int(parameters)
+        if state["parameters"] not in (None, parameters):
+            raise ValueError("Parameterzahl eines warm gestarteten Modells änderte sich")
+        state["model"], state["parameters"] = model, parameters
+        state["losses"].extend(values.tolist())
+        best = int(np.argmin(state["losses"]))
+        stage_best = int(np.argmin(values))
+        state["stages"].append({
+            "round": round_number,
+            "phase": "final" if early_stopping else "halving",
+            "initial_epoch": initial_epoch,
+            "target_epoch": target_epoch,
             "epochs_run": len(values),
-            "val_loss": float(values[best]),
-            "parameters": int(parameters),
+            "cumulative_epochs": len(state["losses"]),
+            "best_epoch": best + 1,
+            "val_loss": float(state["losses"][best]),
+            "stage_val_loss": float(values[stage_best]),
+            "last_val_loss": float(values[-1]),
         })
-    return min(trials, key=lambda trial: trial["val_loss"]), trials
+        print(
+            f"Kandidat {state['number']}/{len(states)} bis Epoche "
+            f"{len(state['losses'])}: Tune-Loss {state['losses'][best]:.6f}"
+        )
+
+    active = states[:]
+    target_epoch = min(initial_epochs, max_epochs)
+    round_number = 1
+    while len(active) > 2:
+        for state in active:
+            train_stage(state, target_epoch, round_number)
+        ranked = sorted(active, key=lambda state: (
+            min(state["losses"]), state["parameters"], state["number"],
+        ))
+        keep = max(
+            2, (len(ranked) + reduction_factor - 1) // reduction_factor
+        )
+        for rank, state in enumerate(ranked, 1):
+            survived = rank <= keep
+            state["stages"][-1].update({"rank": rank, "survived": survived})
+            if not survived:
+                state["pruned_after_round"] = round_number
+                state["model"] = None
+        active = ranked[:keep]
+        round_number += 1
+        target_epoch = min(max_epochs, target_epoch * reduction_factor)
+
+    for state in active:
+        if len(state["losses"]) < max_epochs:
+            train_stage(state, max_epochs, round_number, early_stopping=True)
+    finalists = sorted(active, key=lambda state: (
+        min(state["losses"]), state["parameters"], state["number"],
+    ))
+    winner = finalists[0]
+    for rank, state in enumerate(finalists, 1):
+        survived = rank == 1
+        state["stages"][-1].update({"rank": rank, "survived": survived})
+        if not survived:
+            state["pruned_after_round"] = round_number
+            state["model"] = None
+
+    trials = []
+    for state in states:
+        best = int(np.argmin(state["losses"]))
+        trials.append({
+            "candidate": state["number"],
+            "params": state["params"],
+            "best_epoch": best + 1,
+            "epochs_run": len(state["losses"]),
+            "val_loss": float(state["losses"][best]),
+            "parameters": state["parameters"],
+            "status": "selected" if state is winner else "pruned",
+            "pruned_after_round": state["pruned_after_round"],
+            "stages": state["stages"],
+        })
+        state["model"] = None
+    selected = next(trial for trial in trials if trial["status"] == "selected")
+    return selected, trials
 
 
 def calibration_context_quality(data, mask):
-    """Beschreibt, wie stark die 24h-Kontexte der Kalibrierung imputiert sind."""
+    """Beschreibt, wie stark die ausgewählten 24h-Kontexte imputiert sind."""
     values = np.asarray(data["imputed_fraction"])[mask]
     if not len(values):
-        raise ValueError("Keine Kalibrierungskontexte vorhanden")
+        raise ValueError("Keine Kontexte vorhanden")
     affected = values > 0.5
     rate = float(affected.mean())
     return {
@@ -64,26 +171,35 @@ def calibration_context_quality(data, mask):
         "more_than_half_imputed_count": int(affected.sum()),
         "more_than_half_imputed_fraction": rate,
         "warning": (
-            "Mehr als die Hälfte der Kalibrierungskontexte besteht überwiegend "
-            "aus imputierten Stunden; die Schwelle ist nur eingeschränkt belastbar."
+            "Mehr als die Hälfte der Kontexte besteht überwiegend "
+            "aus imputierten Stunden; dieser Abschnitt ist nur eingeschränkt "
+            "belastbar."
             if rate > 0.5 else None
         ),
     }
 
 
 def evaluation_metadata(data, masks):
+    context_quality = {
+        name: calibration_context_quality(data, masks[name])
+        for name in ["train", "tune", "calibration", "test"]
+    }
+    times = pd.to_datetime(data["time"], utc=True)
     return {
+        "data_period": {
+            "first_target": str(times.min()),
+            "last_target": str(times.max()),
+        },
         "splits": {
             "train_end": str(TRAIN_END), "tune_end": str(TUNE_END),
             "calibration_end": str(CALIBRATION_END),
         },
         "sample_counts": {name: int(mask.sum()) for name, mask in masks.items()},
-        "calibration_context_quality": calibration_context_quality(
-            data, masks["calibration"]
-        ),
+        "calibration_context_quality": context_quality["calibration"],
+        "context_quality_by_split": context_quality,
         "evaluation_limitation": (
-            "Kurzer chronologischer Holdout ab 2025-07-10; keine räumlich "
-            "oder zeitlich unabhängige externe Bestätigung."
+            f"Chronologischer Holdout ab {CALIBRATION_END.date()}; keine "
+            "räumlich unabhängige externe Datenquelle."
         ),
     }
 
