@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.forecaster.common import anomaly_scores, fit_calibrator
+from src.forecaster.common import anomaly_scores, fit_calibrator, model_inputs
 from src.benchmark_injections import _inject, _injection_events
 from src.detector import detector_output
 from src.autoencoder.train import add_masking_noise, sequences
@@ -204,10 +204,24 @@ class AutoencoderTests(unittest.TestCase):
         np.testing.assert_array_equal(result[:, -1, 2], [1, 0])
 
     def test_masking_keeps_original_and_hides_measured_values(self):
-        original = np.ones((3, 24, 3), dtype="float32")
+        original = np.ones((3, 24, 8), dtype="float32")
         noisy = add_masking_noise(original)
         np.testing.assert_array_equal(original, np.ones_like(original))
         self.assertTrue((noisy[:, :, 2] == 0).any(axis=1).all())
+        np.testing.assert_array_equal(noisy[:, :, 3:], original[:, :, 3:])
+
+    def test_masked_forecast_inputs_update_history_statistics(self):
+        data = {
+            "history": np.ones((3, 24, 8), dtype="float32"),
+            "future": np.ones((3, 12), dtype="float32"),
+            "sensor_id": np.zeros((3, 1), dtype="int32"),
+        }
+        masked = model_inputs(data, max_mask_hours=4)
+        values = masked["history"][:, :, :2]
+
+        np.testing.assert_allclose(masked["future"][:, -4:-2], values.mean(1))
+        np.testing.assert_allclose(masked["future"][:, -2:], values.std(1))
+        np.testing.assert_array_equal(data["future"], np.ones((3, 12)))
 
 
 class LabelTests(unittest.TestCase):

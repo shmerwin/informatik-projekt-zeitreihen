@@ -14,9 +14,9 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 
 from ..forecaster.common import (
-    ALPHA, ANOMALY_FEATURE, DATA_PATH, FEATURES, ROOT, SEED, WINDOW_SIZE,
-    evaluation_metadata, fit_scaler, load_data, make_windows,
-    select_by_validation_loss, set_seed, split_masks,
+    ALPHA, ANOMALY_FEATURE, DATA_PATH, FEATURES, ROOT, WINDOW_SIZE,
+    add_masking_noise, evaluation_metadata, fit_scaler, load_data,
+    make_windows, select_by_validation_loss, set_seed, split_masks,
 )
 
 
@@ -42,23 +42,6 @@ def sequences(data):
         data["observed"][:, None, None].astype("float32"),
     ], axis=2)
     return np.concatenate([data["history"][:, 1:, :3], current], axis=1)
-
-
-def add_masking_noise(x, max_hours=4, seed=SEED):
-    """Verdeckt einen gemessenen Block von höchstens ``max_hours`` Stunden."""
-    noisy = x.copy()
-    rng = np.random.default_rng(seed)
-    for number, window in enumerate(noisy):
-        length = int(rng.integers(1, max_hours + 1))
-        starts = [
-            i for i in range(WINDOW_SIZE - length + 1)
-            if x[number, i:i + length, 2].all()
-        ]
-        if starts:
-            start = int(rng.choice(starts))
-            window[start:start + length, :2] = 0
-            window[start:start + length, 2] = 0
-    return noisy
 
 
 def build_model(params):

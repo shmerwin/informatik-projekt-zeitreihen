@@ -50,7 +50,7 @@ else:
 
 # (Sensor, Stunde) zu einer Zeile zusammenfassen
 df = df.groupby(["name", "timestamp"], as_index=False).agg(
-    visitors=("visitors", "median"),
+    visitors=("visitors", "mean"),
     avgDuration=("avgDuration", "mean"),
 )
 print("\nNach Bereinigung:", df.shape)

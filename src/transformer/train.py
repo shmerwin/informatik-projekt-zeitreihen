@@ -15,10 +15,10 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 from ..forecaster.common import (
-    ALPHA, ANOMALY_FEATURE, DATA_PATH, FEATURES, QUANTILES, ROOT, WINDOW_SIZE,
-    QuantileLoss, evaluation_metadata, fit_calibrator, fit_scaler, load_data,
-    make_windows, model_inputs, predict_quantiles, select_by_validation_loss,
-    set_seed, split_masks,
+    ALPHA, ANOMALY_FEATURE, AUXILIARY_FEATURES, DATA_PATH, FEATURES, QUANTILES,
+    ROOT, WINDOW_SIZE, QuantileLoss, evaluation_metadata, fit_calibrator,
+    fit_scaler, load_data, make_windows, model_inputs, predict_quantiles,
+    select_by_validation_loss, set_seed, split_masks,
 )
 
 
@@ -42,6 +42,7 @@ PATIENCE = 12
 BATCH_SIZE = 512
 INITIAL_EPOCHS = 10
 REDUCTION_FACTOR = 2
+MAX_MASK_HOURS = 4
 
 
 def _positions(length, width):
@@ -84,7 +85,7 @@ def build_model(n_sensors, history_channels, params):
         raise ValueError("d_model muss durch heads teilbar sein")
 
     history = keras.Input((WINDOW_SIZE, history_channels), name="history")
-    future = keras.Input((5,), name="future")
+    future = keras.Input((len(AUXILIARY_FEATURES),), name="future")
     sensor_id = keras.Input((1,), dtype="int32", name="sensor_id")
 
     x = layers.Dense(params["d_model"], name="input_projection")(history)
@@ -145,7 +146,9 @@ def train():
         if not masks[split].any():
             raise ValueError(f"Split '{split}' enthält keine gemessenen Ziele")
 
-    train_inputs = model_inputs(data, masks["train"])
+    train_inputs = model_inputs(
+        data, masks["train"], max_mask_hours=MAX_MASK_HOURS
+    )
     train_targets = data["y_scaled"][masks["train"]]
     tune_data = (
         model_inputs(data, masks["tune"]), data["y_scaled"][masks["tune"]],
@@ -185,7 +188,7 @@ def train():
     )
     model.summary()
     history = model.fit(
-        model_inputs(data, training),
+        model_inputs(data, training, max_mask_hours=MAX_MASK_HOURS),
         data["y_scaled"][training],
         epochs=selected["best_epoch"],
         batch_size=BATCH_SIZE,
@@ -204,6 +207,7 @@ def train():
         "anomaly_feature": ANOMALY_FEATURE,
         "quantiles": QUANTILES,
         "window_size": WINDOW_SIZE,
+        "auxiliary_features": AUXILIARY_FEATURES,
         "architecture": {
             "type": "pre_norm_transformer_with_linear_skip",
             **selected["params"],
@@ -222,6 +226,7 @@ def train():
         "training": {
             "sample_count": int(training.sum()),
             "batch_size": BATCH_SIZE,
+            "max_mask_hours": MAX_MASK_HOURS,
             "steps_per_epoch": int(
                 (training.sum() + BATCH_SIZE - 1) // BATCH_SIZE
             ),

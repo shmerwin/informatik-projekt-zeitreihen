@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 
 from src.forecaster.common import (
-    CALIBRATION_END, TRAIN_END, TUNE_END, calibration_context_quality,
-    make_windows, select_by_validation_loss, split_masks,
+    AUXILIARY_FEATURES, CALIBRATION_END, TRAIN_END, TUNE_END,
+    calibration_context_quality, make_windows, select_by_validation_loss,
+    split_masks,
 )
 from src.preprocessing import TRAIN_END as PREPROCESSING_TRAIN_END
 from src.seasonal_baseline import seasonal_scores
@@ -106,6 +107,32 @@ class ModelSearchTests(unittest.TestCase):
         self.assertFalse(data["seasonal_observed"][0])
         self.assertTrue(data["observed"][0])
         self.assertTrue(np.isnan(scores[0]))
+
+    def test_weekly_and_summary_features_use_only_past_values(self):
+        frame = pd.DataFrame({
+            "timestamp": pd.date_range(
+                "2025-01-01", periods=169, freq="1h", tz="UTC"
+            ),
+            "name": "Sensor A",
+            "visitors": np.arange(169, dtype=float),
+            "avgDuration": np.arange(169, dtype=float) + 1,
+            "is_imputed": False,
+        })
+        scaler = {"sensors": ["Sensor A"], "median": [[0, 0]],
+                  "scale": [[1, 1]]}
+        data = make_windows(frame, scaler)
+        context = data["future"][-1]
+        scaled = np.log1p(frame[["visitors", "avgDuration"]].to_numpy())
+
+        self.assertEqual(len(context), len(AUXILIARY_FEATURES))
+        np.testing.assert_allclose(context[5:7], scaled[0])
+        self.assertEqual(context[7], 1)
+        np.testing.assert_allclose(
+            context[8:10], scaled[144:168].mean(axis=0), atol=1e-6
+        )
+        np.testing.assert_allclose(
+            context[10:12], scaled[144:168].std(axis=0), atol=1e-6
+        )
 
 
 if __name__ == "__main__":

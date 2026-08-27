@@ -4,6 +4,7 @@ import unittest
 
 import numpy as np
 
+from src.forecaster.common import AUXILIARY_FEATURES
 from src.transformer.train import CANDIDATES, build_model
 
 
@@ -12,7 +13,9 @@ class TransformerTests(unittest.TestCase):
         parameters = []
         inputs = {
             "history": np.zeros((2, 24, 8), dtype="float32"),
-            "future": np.zeros((2, 5), dtype="float32"),
+            "future": np.zeros(
+                (2, len(AUXILIARY_FEATURES)), dtype="float32"
+            ),
             "sensor_id": np.zeros((2, 1), dtype="int32"),
         }
         for params in CANDIDATES:

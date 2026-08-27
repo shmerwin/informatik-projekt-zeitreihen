@@ -46,20 +46,24 @@ Die Geräteprüfung muss mindestens ein `PhysicalDevice` vom Typ `GPU` ausgeben.
 
 Der Abruf verwendet nur die Python-Standardbibliothek, liest alle eindeutigen
 Sensor-IDs aus der Karte und teilt lange Zeiträume in 60-Tage-Anfragen. Die
-Zieldatei wird erst nach einem vollständigen erfolgreichen Abruf ersetzt.
+Zieldatei wird erst nach einem vollständigen erfolgreichen Abruf ersetzt. Ohne
+Argumente verwendet der Befehl den festen Abrufzeitraum vom 30.06.2025 bis zum
+01.07.2026 (Endzeitpunkt exklusiv).
 
 ```powershell
 py -3.12 -m src.download_data
 py -3.12 -m src.preprocessing
 ```
 
-Der für die aktuellen Modellläufe verwendete Snapshot lässt sich mit festen
-Grenzen reproduzieren:
+Der für die aktuellen Modellläufe verwendete Zeitraum lässt sich mit festen
+Grenzen erneut abrufen. Nachträgliche Änderungen historischer API-Daten können
+dabei nicht ausgeschlossen werden; die gespeicherten Modellartefakte beziehen
+sich auf den beim Trainingslauf vorliegenden Abrufstand:
 
 ```powershell
 py -3.12 -m src.download_data `
   --since 2025-06-30T00:00:00Z `
-  --until 2026-07-31T00:00:00Z
+  --until 2026-07-01T00:00:00Z
 py -3.12 -m src.preprocessing
 ```
 
@@ -67,12 +71,16 @@ py -3.12 -m src.preprocessing
 `data/processed/cleaned_sensordata.json` sind generierte Dateien und wegen
 ihrer Größe nicht Teil des Git-Repositories.
 
+Der Imputationsbenchmark unter `saved_models/preprocessing` dokumentiert eine
+explorative Vorprüfung vom 30.06. bis 07.07.2025. Er ist kein erneuter
+Gütenachweis für den später erweiterten Jahresdatensatz.
+
 ## Chronologische Aufteilung
 
-- Training: vor dem 1. Mai 2026
-- Tuning und Modellauswahl: Mai 2026
-- Kalibrierung von Intervallen und Alarmregeln: Juni 2026
-- unangetasteter Test: ab dem 1. Juli 2026
+- Training: vor dem 1. April 2026
+- Tuning und Modellauswahl: April 2026
+- Kalibrierung von Intervallen und Alarmregeln: Mai 2026
+- chronologischer Test: Juni 2026
 
 Die Grenzen liegen zentral in `src/data_config.py` und werden von
 Preprocessing, Training, Benchmark und Evaluation gemeinsam verwendet.
@@ -92,8 +100,9 @@ py -3.12 -m src.forecaster.evaluate --model-dir saved_models/transformer
 Die neuronalen Modelle wählen Architektur und Epoche ausschließlich über den
 Tuning-Zeitraum. Die kuratierten Kandidaten reichen von kleinen bis deutlich
 größeren Netzen; Early Stopping begrenzt unnötige Epochen. Der synthetische
-Benchmark wählt danach die Alarmregel im Kalibrierungsblock und bewertet sie
-mit getrennten Seeds im Testblock.
+Benchmark wählt danach die Alarmregel mit synthetischen Anomalien im
+Kalibrierungsblock und bewertet sie mit getrennten Zufallsstartwerten im
+Testblock. Diese Kennzahlen sind keine Bewertung realer Anomalieereignisse.
 
 ## Tests
 

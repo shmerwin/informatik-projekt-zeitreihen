@@ -41,12 +41,13 @@ class DownloadTests(unittest.TestCase):
             "timestamp": "2025-01-01T00:00:00Z",
             "visitors": 1, "avgDuration": 2,
         }
+        endpoint_record = dict(record, timestamp="2025-01-02T00:00:00Z")
 
         def fetch(url):
             calls.append(url)
             if "/features?" in url:
                 return {"group": [{"id": 7}, {"id": 7}]}
-            return {"sensordata": [record, dict(record)]}
+            return {"sensordata": [record, dict(record), endpoint_record]}
 
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "raw.json"

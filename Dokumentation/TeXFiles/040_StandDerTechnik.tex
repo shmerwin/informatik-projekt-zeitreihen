@@ -14,12 +14,12 @@ einer Vorhersage ab, statt nur einen einzelnen Schätzwert auszugeben
 eines Netzes an seine Trainingsbeispiele begrenzen
 \cite{srivastava2014dropout}.
 
-Diese Arbeiten begründen die im Projekt verwendeten Bausteine
+Diese Arbeiten begründen die in dieser Arbeit untersuchten Bausteine
 Prognosefehler, gemeinsames Lernen, Sensorinformation, Quantilausgabe und
-Dropout. Sie geben jedoch keine optimale Schichtbreite für den kurzen
-Datensatz aus Bad Nauheim vor. Die konkreten Größen werden deshalb in
-Abschnitt~\ref{sec:Methode_Forecasterarchitektur} anhand von Datenumfang und
-Parameterbudget festgelegt.
+Dropout. Sie bestimmen jedoch keine allgemein gültige optimale Schichtbreite
+für den vorliegenden Datensatz. Die konkreten Größen werden deshalb in
+Abschnitt~\ref{sec:Methode_Forecasterarchitektur} anhand des Datenumfangs und
+einer begrenzten Modellkomplexität festgelegt.
 
 \section{Transformer für Zeitreihenprognosen}
 \label{sec:SdT_Transformer}
@@ -41,9 +41,10 @@ Pfad von den historischen Messwerten zur Prognose
 \cite{zeng2023transformers}. Er ergänzt die Attention, ersetzt sie aber nicht.
 Statische Sensorinformation, bekannte Kalendergrößen und Quantilausgaben
 orientieren sich an den Eingabearten probabilistischer
-Zeitreihen-Transformer \cite{lim2021tft}. Die konkrete Breite bleibt wegen des
-kleinen Datensatzes deutlich unter den Architekturen dieser Arbeiten und wird
-auf einem getrennten Tuningabschnitt gewählt.
+Zeitreihen-Transformer \cite{lim2021tft}. Da der Datenumfang gegenüber
+großskaligen Benchmarkkorpora begrenzt ist, bleibt die konkrete Breite
+deutlich unter den Architekturen dieser Arbeiten und wird auf einem getrennten
+Tuningabschnitt gewählt.
 
 \section{Anomalieerkennung durch Rekonstruktion}
 
@@ -62,7 +63,7 @@ reine Kopieren der Eingabe erschwert \cite{vincent2008denoising}. Neuere
 Verfahren verwenden ebenfalls zeitliche Maskierung, kombinieren diese jedoch
 teilweise mit mehreren Transformern, Frequenzdarstellungen und zusätzlichen
 Fehlerfunktionen \cite{fang2024tfmae}. Für den kontrollierten Vergleich und
-das kurze 24-Stunden-Eingabefenster dieses Projekts wird nur das einfache
+das 24-Stunden-Eingabefenster dieser Untersuchung wird ausschließlich das
 Maskierungsprinzip übernommen.
 
 \section[Fairer Vergleich]{Komplexität und fairer Vergleich}

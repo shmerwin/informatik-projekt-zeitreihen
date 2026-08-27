@@ -12,7 +12,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .data_config import DATA_START_UTC
+from .data_config import DATA_END_UTC, DATA_START_UTC
 
 
 BASE_URL = "https://smartes.bad-nauheim.de"
@@ -101,6 +101,12 @@ def download_all(since, until, output=OUTPUT, fetch=_get_json):
             f"{len(records) - before} Rohdatensätze"
         )
 
+    # Die Stadt-API liefert den Endzeitpunkt mit. Für reproduzierbare,
+    # halboffene Zeiträume wird die endgültige Grenze hier ausgeschlossen.
+    records = [
+        record for record in records
+        if since <= _parse_time(record["timestamp"]) < until
+    ]
     records = _deduplicate(records)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
@@ -118,12 +124,9 @@ def download_all(since, until, output=OUTPUT, fetch=_get_json):
 
 
 def main():
-    tomorrow = datetime.now(timezone.utc).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    ) + timedelta(days=1)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--since", default=DATA_START_UTC)
-    parser.add_argument("--until", default=_iso(tomorrow))
+    parser.add_argument("--until", default=DATA_END_UTC)
     parser.add_argument("--output", type=Path, default=OUTPUT)
     args = parser.parse_args()
     result = download_all(args.since, args.until, args.output)

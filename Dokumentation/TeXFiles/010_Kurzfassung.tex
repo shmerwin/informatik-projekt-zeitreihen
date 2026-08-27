@@ -5,9 +5,12 @@
 \fi
 \label{ch:Abstract}
 
-Diese Arbeit entwickelt ein unüberwachtes Verfahren zur Erkennung auffälliger
-Passantenfrequenzen aus Bad Nauheim. Die Verweildauer bleibt eine zusätzliche
-Modellgröße, löst jedoch keinen Alarm aus. Der untersuchte API-Snapshot umfasst
+Diese Arbeit entwickelt und vergleicht vier Verfahren zur Erkennung
+auffälliger Passantenfrequenzen aus Bad Nauheim. Die neuronalen Modelle werden
+ohne reale Anomalieklassen selbstüberwacht trainiert; die Alarmregeln werden
+mit kontrollierten synthetischen Anomalien im Kalibrierungsabschnitt
+ausgewählt. Die Verweildauer bleibt eine zusätzliche Modellgröße, löst jedoch
+keinen Alarm aus. Der untersuchte API-Snapshot umfasst
 30 Sensoren vom 30.~Juni 2025 bis zum 30.~Juli 2026. Die Datenaufbereitung
 verdichtet 572.461 Rohdatensätze zu 284.745 Sensorstunden, behandelt 18
 gemeinsame Nullausfälle als fehlend und ergänzt 98.137 Stunden ausschließlich
@@ -17,19 +20,21 @@ Bewertungsziel verwendet.
 
 Untersucht werden ein Quantil-LSTM mit 21.374 Parametern, ein
 Quantil-Transformer mit 61.062 Parametern, ein LSTM-Autoencoder mit 50.562
-Parametern und ein parameterfreier robuster $t-24$-Detektor. Eine breite,
-chronologische Modellsuche wird per Successive Halving verkürzt; die beiden
-Finalisten jedes neuronalen Verfahrens laufen bis zum vollständigen
-Early-Stopping-Vergleich. Bei starken künstlichen Anomalien erreicht der
+Parametern und ein parameterfreier robuster $t-24$-Detektor. Eine
+chronologische Kandidatensuche wird durch Successive Halving verkürzt; die
+jeweils zwei verbleibenden Konfigurationen werden bis zum
+Early-Stopping-Kriterium oder zur jeweiligen Epochenobergrenze trainiert. Bei
+starken künstlichen Anomalien erreicht der
 LSTM-Forecaster einen mittleren Punkt-F1 von 0{,}653 und einen Ereignis-F1 von
 0{,}885. Der Transformer erreicht 0{,}603 beziehungsweise 0{,}824, der
 Autoencoder 0{,}459 beziehungsweise 0{,}547 und die saisonale Methode 0{,}326
-beziehungsweise 0{,}478. Der Transformer liefert die genaueren
-Holdout-Prognosen und die knapp höchste mittlere ROC-AUC, während die
-kalibrierte LSTM-Alarmregel den höchsten Ereignis-F1 erzielt. Im unveränderten
-Testabschnitt markieren LSTM und Transformer 105 beziehungsweise 91 Stunden
-in 79 beziehungsweise 71 Ereignissen; 11.636 fehlende Messungen werden in
+beziehungsweise 0{,}478. Der Transformer liefert auf den gemessenen Testzielen
+die genaueren Prognosen und die knapp höchste mittlere ROC-AUC, während die
+kalibrierte LSTM-Alarmregel den höchsten Ereignis-F1 erzielt. Im nicht
+injizierten Testabschnitt markieren LSTM und Transformer 105 beziehungsweise
+91 Stunden in 79 beziehungsweise 71 Ereignissen; 11.636 fehlende Messungen werden in
 1.460 Datenqualitätsereignissen getrennt ausgewiesen. Die synthetischen Tests
-belegen die technische Erkennungsfähigkeit für definierte Veränderungen.
+zeigen die erzielte Erkennungsleistung unter den definierten synthetischen
+Veränderungen.
 Fehlende vollständige reale Markierungen und eine räumlich unabhängige externe
 Datenquelle begrenzen weiterhin Aussagen über unbekannte reale Anomalien.

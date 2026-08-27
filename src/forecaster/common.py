@@ -23,7 +23,15 @@ MODEL_DIR = ROOT / "saved_models" / "forecaster"
 FEATURES = ["visitors", "avgDuration"]
 ANOMALY_FEATURE = "visitors"
 WINDOW_SIZE = 24
+WEEKLY_LAG = 168
 QUANTILES = [0.1, 0.5, 0.9]
+AUXILIARY_FEATURES = [
+    "hour_sin", "hour_cos", "weekday_sin", "weekday_cos", "weekend",
+    "visitors_t_minus_168", "avgDuration_t_minus_168",
+    "t_minus_168_observed", "visitors_history_mean",
+    "avgDuration_history_mean", "visitors_history_std",
+    "avgDuration_history_std",
+]
 TRAIN_END = pd.Timestamp(TRAIN_END_UTC)
 TUNE_END = pd.Timestamp(TUNE_END_UTC)
 CALIBRATION_END = pd.Timestamp(CALIBRATION_END_UTC)
@@ -287,8 +295,21 @@ def make_windows(df, scaler):
             ausschnitt = zeiten[i - WINDOW_SIZE:i + 1]
             if not np.all((ausschnitt[1:] - ausschnitt[:-1]) == pd.Timedelta(hours=1)):
                 continue
+            history = skaliert[i - WINDOW_SIZE:i]
+            if i >= WEEKLY_LAG and (
+                zeiten[i] - zeiten[i - WEEKLY_LAG]
+                == pd.Timedelta(hours=WEEKLY_LAG)
+            ):
+                weekly = skaliert[i - WEEKLY_LAG]
+                weekly_observed = beobachtet[i - WEEKLY_LAG]
+            else:
+                weekly = np.zeros(len(FEATURES))
+                weekly_observed = False
             daten["history"].append(dynamisch[i - WINDOW_SIZE:i])
-            daten["future"].append(kalender[i])
+            daten["future"].append(np.concatenate([
+                kalender[i], weekly, [weekly_observed],
+                history.mean(axis=0), history.std(axis=0),
+            ]))
             daten["sensor_id"].append([sid])
             daten["y_scaled"].append(skaliert[i])
             daten["y_raw"].append(roh[i])
@@ -315,9 +336,37 @@ def make_windows(df, scaler):
     return arrays
 
 
-def model_inputs(data, mask=None):
+def add_masking_noise(x, max_hours=4, seed=SEED):
+    """Verdeckt Messwerte und Maske; weitere Kanäle bleiben erhalten."""
+    noisy = x.copy()
+    rng = np.random.default_rng(seed)
+    for number, window in enumerate(noisy):
+        length = int(rng.integers(1, max_hours + 1))
+        starts = [
+            i for i in range(x.shape[1] - length + 1)
+            if x[number, i:i + length, 2].all()
+        ]
+        if starts:
+            start = int(rng.choice(starts))
+            window[start:start + length, :2] = 0
+            window[start:start + length, 2] = 0
+    return noisy
+
+
+def model_inputs(data, mask=None, max_mask_hours=0):
     mask = slice(None) if mask is None else mask
-    return {name: data[name][mask] for name in ["history", "future", "sensor_id"]}
+    inputs = {
+        name: data[name][mask] for name in ["history", "future", "sensor_id"]
+    }
+    if max_mask_hours:
+        inputs["history"] = add_masking_noise(
+            inputs["history"], max_mask_hours
+        )
+        inputs["future"] = inputs["future"].copy()
+        values = inputs["history"][:, :, :2]
+        inputs["future"][:, -4:-2] = values.mean(axis=1)
+        inputs["future"][:, -2:] = values.std(axis=1)
+    return inputs
 
 
 def split_masks(data):
@@ -345,7 +394,7 @@ class QuantileLoss(keras.losses.Loss):
 
 def build_model(n_sensors, history_channels, params):
     history = keras.Input((WINDOW_SIZE, history_channels), name="history")
-    future = keras.Input((5,), name="future")
+    future = keras.Input((len(AUXILIARY_FEATURES),), name="future")
     sid = keras.Input((1,), dtype="int32", name="sensor_id")
     x = layers.LSTM(params["units"], dropout=params["dropout"])(history)
     sensor = layers.Flatten()(layers.Embedding(n_sensors, params["embedding"])(sid))

@@ -7,7 +7,7 @@ from .benchmark_injections import ANOMALY_TYPES, _inject, _injection_events
 from .benchmark_metrics import _aggregate_injection_runs, _evaluate_injection_run
 from .detector import detector_output
 from .forecaster.common import (
-    CALIBRATION_END, TUNE_END, WINDOW_SIZE, anomaly_scores, make_windows,
+    CALIBRATION_END, TUNE_END, WEEKLY_LAG, anomaly_scores, make_windows,
     predict_quantiles,
 )
 
@@ -60,7 +60,7 @@ def _prepare_injection_runs(
         base_data, model, bundle, start, end, score_function
     )
     timestamps = pd.to_datetime(df["timestamp"], utc=True)
-    relevant = timestamps >= start - pd.Timedelta(hours=WINDOW_SIZE)
+    relevant = timestamps >= start - pd.Timedelta(hours=WEEKLY_LAG)
     if end is not None:
         relevant &= timestamps < end
     period_df = df.loc[relevant].copy()
@@ -125,7 +125,7 @@ def _noise_robustness(df, base, model, bundle, score_function=None):
     base_keys = list(zip(base["data"]["sensor"], base["data"]["time"]))
     timestamps = pd.to_datetime(df["timestamp"], utc=True)
     period_df = df.loc[
-        timestamps >= CALIBRATION_END - pd.Timedelta(hours=WINDOW_SIZE)
+        timestamps >= CALIBRATION_END - pd.Timedelta(hours=WEEKLY_LAG)
     ].copy()
     observed = data["observed"]
     base_alarm, _, _ = detector_output(

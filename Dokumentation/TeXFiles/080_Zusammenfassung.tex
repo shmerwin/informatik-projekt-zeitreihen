@@ -10,23 +10,24 @@ Alarme und künstlichen Testanomalien beziehen sich aber ausschließlich auf die
 Passantenfrequenz. Die Verfahren verwenden dieselben Zeitabschnitte und
 Entscheidungskriterien, ohne ihre Anomaliewerte miteinander zu vermischen.
 
-Der Transformer prognostiziert beide Zielgrößen am genauesten und erreicht auf
-starken synthetischen Anomalien die knapp höchste mittlere ROC-AUC. Der LSTM
+Von den beiden Prognosemodellen erzielt der Transformer auf den gemessenen
+Testzielen für beide Zielgrößen die geringeren Fehler und erreicht auf starken
+synthetischen Anomalien die knapp höchste mittlere ROC-AUC. Der LSTM
 erreicht mit der kalibrierten Alarmregel dagegen den höchsten Punkt- und
 Ereignis-F1. Die saisonale Baseline reagiert am robustesten auf zusätzliches
 Zählwertrauschen, bleibt bei der Erkennung der injizierten Ereignisse aber
 hinter den Prognosemodellen. Trotz einer größeren gewählten Architektur und
-200 ausgeschöpften Epochen erreicht auch der Autoencoder deren
-Gesamtkennzahlen nicht. Zusätzliche Attention verbessert damit Prognose und
-Ranking der Rohscores, führt aber nicht automatisch zur besten binären
-Alarmregel.
+des Trainings über die maximal vorgesehenen 200 Epochen erreicht auch der
+Autoencoder deren Gesamtkennzahlen nicht. Zusätzliche Attention geht damit mit
+geringeren Prognosefehlern und einer nahezu identischen, minimal höheren
+ROC-AUC einher, verbessert aber weder Average Precision noch die binäre
+Alarmregel durchgehend.
 
-Als nächste Schritte sind vor allem die vollständige manuelle Prüfung der 79
-LSTM- und 71 Transformer-Kandidatenereignisse, die Klärung der geplanten
-Sensorlaufzeiten und eine Bestätigung auf einem zeitlich sowie möglichst
-räumlich unabhängigen Datensatz sinnvoll. Weitere Entwicklungsläufe können
-mit einem kleineren Autoencoder-Budget und einem Ein-Seed-Smoke-Benchmark
-beschleunigt werden; die hier berichtete Referenzauswertung sollte für den
-abschließenden Vergleich vollständig bleiben. Erst reale Ereignislabels
-erlauben belastbare Aussagen zur Erkennung unbekannter fachlicher Anomalien.
+Für weiterführende Untersuchungen sind verifizierte Sensorlaufzeiten sowie
+eine zeitlich und möglichst räumlich unabhängige Datenquelle mit fachlich
+bestätigten Ereignislabels erforderlich. Eine Rolling-Origin-Auswertung über
+mehrere Zeitabschnitte könnte zusätzlich prüfen, ob Modellrangfolge und
+kalibrierte Alarmregeln gegenüber zeitlichen Veränderungen stabil bleiben.
+Erst reale Ereignislabels erlauben belastbare Aussagen zur Erkennung
+unbekannter fachlicher Anomalien.
 

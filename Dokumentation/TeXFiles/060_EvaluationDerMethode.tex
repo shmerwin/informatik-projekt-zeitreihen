@@ -7,7 +7,7 @@
 Alle Teilmengen werden chronologisch und nicht zufällig gebildet. Dies
 verhindert, dass spätere Stunden als Lernbeispiele für frühere Prognosen
 verwendet werden. Tabelle~\ref{tab:forecaster_splits} nennt die Grenzen und die
-Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
+Anzahl ursprünglich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
 
 \begin{table}[htb]
   \centering
@@ -26,18 +26,27 @@ Anzahl tatsächlich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
   \end{tabular}
 \end{table}
 
+Der Juli bildet den zeitlich letzten zusammenhängenden Abschnitt des
+Datensatzes. Fehlende Zielwerte werden nicht bewertet; die 9.604 gemessenen
+Zielpunkte bilden die Testpopulation. Eine nachträgliche Wahl eines früheren,
+vollständigeren Monats anhand seiner bereits bekannten Abdeckung würde den
+Testzeitraum selbst zu einer Auswahlentscheidung machen und eine vollständige
+Neuschätzung aller Modelle und Alarmregeln erfordern. Der Juli bleibt deshalb
+als chronologischer Holdout erhalten; seine ungleiche Sensorabdeckung wird bei
+der Interpretation ausdrücklich berücksichtigt.
+
 Für LSTM-Forecaster und Autoencoder werden jeweils fünf, für den Transformer
 sechs vorab festgelegte Architektur- und Lernratenkombinationen verglichen.
-Die Kandidaten decken bewusst kleine bis deutlich größere Netze ab. Jeder
+Die Kandidaten umfassen Netze unterschiedlicher Größe. Jeder
 Kandidat lernt nur auf dem Trainingsabschnitt; ausschließlich der
 chronologische Tuning-Loss bestimmt Kombination und Epochenzahl. Um die Suche
 zu verkürzen, erhalten zunächst alle Kandidaten zehn Epochen. Danach wird die
-schlechtere Hälfte verworfen, bis zwei Finalisten verbleiben. Diese beiden
-werden warm gestartet bis zur jeweiligen Obergrenze mit Early Stopping
-weitertrainiert und erst anschließend verglichen. Damit kann ein in der
-Finalrunde später aufholendes Modell noch gewinnen; eine absolute Garantie
-gegen das zu frühe Verwerfen eines anderen Kandidaten böte allerdings nur die
-wesentlich teurere Vollsuche.
+Hälfte mit den höheren Tuning-Loss-Werten ausgeschlossen, bis zwei
+Konfigurationen verbleiben. Deren Training wird mit den bereits bestimmten
+Gewichten bis zur jeweiligen Obergrenze und mit Early Stopping fortgesetzt.
+Dieses gestufte Verfahren reduziert den Rechenaufwand, kann jedoch nicht
+ausschließen, dass ein früh ausgeschiedener Kandidat bei vollständigem
+Training einen geringeren Loss erreicht.
 
 Der LSTM-Forecaster erhält höchstens 80 Epochen bei einer Geduld von acht, der
 Transformer 120 bei einer Geduld von zwölf und der Autoencoder 200 bei einer
@@ -45,8 +54,11 @@ Geduld von 15 Epochen. Die Batchgröße beträgt einheitlich 512. Das ausgewähl
 Modell wird anschließend für seine beste Epochenzahl auf Training und Tuning
 gemeinsam, also auf 163.204 Fenstern mit identischen Zielzeitpunkten, neu
 trainiert. Erst danach bestimmt der Kalibrierungsabschnitt die Schwellen und
-gegebenenfalls eine Persistenzregel. Der Testabschnitt wird für keine dieser
-Entscheidungen verwendet.
+gegebenenfalls eine Persistenzregel. Der Testabschnitt geht nicht in die
+automatisierte Auswahl von Architektur, Epochenzahl, Schwellenwerten oder
+Persistenzregel ein. Da seine Ergebnisse während der retrospektiven
+Modellentwicklung bereits einsehbar waren, ist er jedoch nicht als vollständig
+unabhängige konfirmatorische Prüfung zu interpretieren.
 
 \section{Bewertung der Prognosegüte}
 
@@ -157,7 +169,7 @@ Ergänzend prüft ein reproduzierbarer Rauschtest die Alarmstabilität. Für
 gemessene Besucherwerte wird bei 5~\% und 15~\% Stärke mittelwerttreues,
 nichtnegatives Zählwertrauschen aus binomialem Ausdünnen und einer
 Poisson-Ersetzung erzeugt. Berichtet wird der Anteil zusätzlicher Alarme
-gegenüber dem unveränderten Testlauf. Der einmonatige Testblock wird nicht
+gegenüber dem nicht injizierten Testlauf. Der einmonatige Testblock wird nicht
 noch einmal in kürzere Teilblöcke zur Rolling-Origin-Neuschätzung zerlegt,
 weil dann pro Ursprung nur wenige Ereignisse und Sensorstunden verblieben.
 
@@ -165,11 +177,12 @@ weil dann pro Ursprung nur wenige Ereignisse und Sensorstunden verblieben.
 
 Die explorative Datenqualitätsanalyse ist in \texttt{analyse/analyse.py}
 erhalten; \texttt{analyse/preprocessing\_plots.py} erzeugt die
-Diagnoseabbildungen zur Aufbereitung. Die eigentliche Pipeline wird aus dem
-Projektverzeichnis mit
-folgenden Befehlen ausgeführt:
+Diagnoseabbildungen zur Aufbereitung. Die vollständige Verarbeitung wird aus
+dem Projektverzeichnis mit folgenden Befehlen reproduziert:
 \begin{verbatim}
-py -3.12 -m src.download_data
+py -3.12 -m src.download_data `
+  --since 2025-06-30T00:00:00Z `
+  --until 2026-07-31T00:00:00Z
 py -3.12 -m src.preprocessing
 py -3.12 -m src.forecaster.train
 py -3.12 -m src.transformer.train
@@ -179,9 +192,14 @@ py -3.12 -m src.benchmark
 py -3.12 -m src.forecaster.evaluate
 py -3.12 -m src.forecaster.evaluate --model-dir saved_models/transformer
 \end{verbatim}
-Bei unveränderten Rohdaten werden nur die gewünschten Modelle neu trainiert.
-Für die erneute Auswertung des gespeicherten LSTM-Forecasters reicht
-\texttt{py -3.12 -m src.forecaster.evaluate}; derselbe Aufruf mit
+Die festen Downloadgrenzen beschränken erneute Abrufe auf denselben Zeitraum;
+nachträgliche Änderungen des API-Bestands können nicht ausgeschlossen werden.
+Die berichteten Kennzahlen und gespeicherten Modellartefakte beziehen sich auf
+den beim Trainingslauf vorliegenden Abrufstand.
+Die Trainingsbefehle können bei unveränderten Rohdaten modellweise ausgeführt
+werden. Der gespeicherte LSTM-Forecaster wird mit
+\texttt{py -3.12 -m src.forecaster.evaluate} erneut ausgewertet; derselbe
+Aufruf mit
 \texttt{--model-dir saved\_models/transformer} wertet den Transformer aus. Der
 davon getrennte synthetische Vergleich aller vier Verfahren wird mit
 \texttt{py -3.12 -m src.benchmark} ausgeführt. Modellparameter,
@@ -194,8 +212,8 @@ Splits, Skalierung, Kalibrierung und Detektorregel werden in
 Detailergebnisse je Modell und fasst alle vier Verfahren zusätzlich in
 \texttt{saved\_models/benchmark/model\_comparison.csv} sowie in der gemeinsamen
 ROC-/PR-Abbildung zusammen.
-Der zugehörige Code ist nach Injektionen, Metriken, Auswertung und der kurzen
-Aufrufsteuerung in getrennte Module gegliedert.
+Die Implementierung trennt Anomalieinjektion, Metrikberechnung und
+Modellauswertung in eigenständige Module.
 
 
 

@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from .common import (
-    ALPHA, ANOMALY_FEATURE, DATA_PATH, FEATURES, MODEL_DIR, QUANTILES,
-    build_model, evaluation_metadata, fit_calibrator, fit_scaler, load_data,
-    make_windows, model_inputs, predict_quantiles, select_by_validation_loss,
-    set_seed, split_masks,
+    ALPHA, ANOMALY_FEATURE, AUXILIARY_FEATURES, DATA_PATH, FEATURES, MODEL_DIR,
+    QUANTILES, build_model, evaluation_metadata, fit_calibrator, fit_scaler,
+    load_data, make_windows, model_inputs, predict_quantiles,
+    select_by_validation_loss, set_seed, split_masks,
 )
 
 
@@ -31,6 +31,7 @@ PATIENCE = 8
 BATCH_SIZE = 512
 INITIAL_EPOCHS = 10
 REDUCTION_FACTOR = 2
+MAX_MASK_HOURS = 4
 
 
 def train():
@@ -44,7 +45,9 @@ def train():
         if not masks[split].any():
             raise ValueError(f"Split '{split}' enthält keine gemessenen Ziele")
 
-    train_inputs = model_inputs(data, masks["train"])
+    train_inputs = model_inputs(
+        data, masks["train"], max_mask_hours=MAX_MASK_HOURS
+    )
     train_targets = data["y_scaled"][masks["train"]]
     tune_data = (
         model_inputs(data, masks["tune"]), data["y_scaled"][masks["tune"]],
@@ -84,7 +87,7 @@ def train():
     )
     model.summary()
     history = model.fit(
-        model_inputs(data, training),
+        model_inputs(data, training, max_mask_hours=MAX_MASK_HOURS),
         data["y_scaled"][training],
         epochs=selected["best_epoch"],
         batch_size=BATCH_SIZE,
@@ -106,6 +109,7 @@ def train():
         "anomaly_feature": ANOMALY_FEATURE,
         "quantiles": QUANTILES,
         "window_size": 24,
+        "auxiliary_features": AUXILIARY_FEATURES,
         "architecture": selected["params"],
         "epochs": selected["best_epoch"],
         "parameters": model.count_params(),
@@ -121,6 +125,7 @@ def train():
         "training": {
             "sample_count": int(training.sum()),
             "batch_size": BATCH_SIZE,
+            "max_mask_hours": MAX_MASK_HOURS,
             "steps_per_epoch": int(
                 (training.sum() + BATCH_SIZE - 1) // BATCH_SIZE
             ),
