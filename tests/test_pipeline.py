@@ -8,13 +8,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.forecaster.common import anomaly_scores, fit_calibrator, model_inputs
+from src.forecaster.common import (
+    DATA_END, anomaly_scores, fit_calibrator, load_data, model_inputs,
+)
 from src.benchmark_injections import _inject, _injection_events
 from src.detector import detector_output
 from src.autoencoder.train import add_masking_noise, sequences
 from src.forecaster.evaluate import (
-    _alert_confidence, _evaluate_labels, _event_review_template, _forecast_metrics,
-    _unmodeled_missing_candidates,
+    _alert_confidence, _evaluate_labels, _event_review_template, _example_window,
+    _forecast_metrics, _missing_spans, _unmodeled_missing_candidates,
 )
 from src.preprocessing import process_and_impute_full_data
 
@@ -50,6 +52,26 @@ class PreprocessingTests(unittest.TestCase):
         finally:
             temp_a.cleanup()
             temp_b.cleanup()
+
+    def test_non_finite_raw_value_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "raw.json"
+            path.write_text(json.dumps({"sensordata": [{
+                "timestamp": "2025-01-01T00:00:00Z", "name": "Sensor A",
+                "visitors": "Infinity", "avgDuration": 1,
+            }]}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "visitors"):
+                process_and_impute_full_data(path)
+
+    def test_model_data_at_exclusive_end_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "processed.json"
+            path.write_text(json.dumps({"sensordata": [{
+                "timestamp": str(DATA_END), "name": "Sensor A",
+                "visitors": 1, "avgDuration": 1, "is_imputed": False,
+            }]}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "exklusiven Datenende"):
+                load_data(path, min_train_points=None)
 
     def test_systemwide_zero_is_treated_as_missing(self):
         records = []
@@ -127,6 +149,33 @@ class CalibrationTests(unittest.TestCase):
         confidence, reason = _alert_confidence(0.75, 10, 10.5, 20)
         self.assertEqual(confidence, "low")
         self.assertIn("< 1 Besucher", reason)
+
+    def test_example_window_prefers_observed_normal_confidence_candidates(self):
+        times = pd.date_range("2026-06-01", periods=6, freq="1h", tz="UTC")
+        candidates = pd.DataFrame({
+            "sensor": np.repeat(["sparse", "observed"], len(times)),
+            "time": list(times) * 2,
+            "actual_visitors": [1, 2, np.nan, np.nan, np.nan, np.nan]
+            + [1, 2, 3, 4, 5, np.nan],
+            "forecast_anomaly": [True, True, False, False, False, False]
+            + [True, True, False, False, False, False],
+            "confidence": "normal",
+        })
+        sensor, plot = _example_window(candidates)
+        self.assertEqual(sensor, "observed")
+        self.assertEqual(len(plot), len(times))
+        self.assertTrue(plot["actual_visitors"].isna().any())
+
+    def test_missing_spans_combine_contiguous_hours(self):
+        times = pd.date_range("2026-06-01", periods=6, freq="1h", tz="UTC")
+        plot = pd.DataFrame({
+            "time": times,
+            "actual_visitors": [1, np.nan, np.nan, np.nan, 2, np.nan],
+        })
+        self.assertEqual(_missing_spans(plot), [
+            (times[1], times[4]),
+            (times[5], times[5] + pd.Timedelta(hours=1)),
+        ])
 
 
 class InjectionTests(unittest.TestCase):

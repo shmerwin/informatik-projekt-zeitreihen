@@ -11,30 +11,34 @@ ohne reale Anomalieklassen selbstüberwacht trainiert; die Alarmregeln werden
 mit kontrollierten synthetischen Anomalien im Kalibrierungsabschnitt
 ausgewählt. Die Verweildauer bleibt eine zusätzliche Modellgröße, löst jedoch
 keinen Alarm aus. Der untersuchte API-Snapshot umfasst
-30 Sensoren vom 30.~Juni 2025 bis zum 30.~Juli 2026. Die Datenaufbereitung
-verdichtet 572.461 Rohdatensätze zu 284.745 Sensorstunden, behandelt 18
-gemeinsame Nullausfälle als fehlend und ergänzt 98.137 Stunden ausschließlich
-aus Vergangenheit oder Trainingsprofilen. Imputierte Werte bleiben als
-gekennzeichneter Kontext erhalten, werden aber nicht als Lern- oder
-Bewertungsziel verwendet.
+30 Sensoren vom 30.~Juni 2025 bis zum exklusiven Endzeitpunkt 1.~Juli 2026.
+Die Datenaufbereitung verdichtet 537.810 Rohdatensätze zu 263.505 aktiven
+Sensorstunden und behandelt 17 gemeinsame Nullausfälle als fehlend. Von den
+aktiven Sensorstunden sind 177.004 beobachtet und 86.501 imputiert. Die
+Ersatzwerte stammen ausschließlich aus Vergangenheit oder Trainingsprofilen;
+sie bleiben als gekennzeichneter Kontext erhalten, werden aber nicht als Lern-
+oder Bewertungsziel verwendet.
 
-Untersucht werden ein Quantil-LSTM mit 21.374 Parametern, ein
-Quantil-Transformer mit 61.062 Parametern, ein LSTM-Autoencoder mit 50.562
-Parametern und ein parameterfreier robuster $t-24$-Detektor. Eine
+Untersucht werden ein Quantil-LSTM mit 21.598 Parametern, ein
+Quantil-Transformer mit 61.398 Parametern, ein LSTM-Autoencoder mit 50.562
+Parametern und ein robuster $t-24$-Detektor ohne trainierbare
+Modellparameter. Eine
 chronologische Kandidatensuche wird durch Successive Halving verkürzt; die
 jeweils zwei verbleibenden Konfigurationen werden bis zum
 Early-Stopping-Kriterium oder zur jeweiligen Epochenobergrenze trainiert. Bei
 starken künstlichen Anomalien erreicht der
-LSTM-Forecaster einen mittleren Punkt-F1 von 0{,}653 und einen Ereignis-F1 von
-0{,}885. Der Transformer erreicht 0{,}603 beziehungsweise 0{,}824, der
-Autoencoder 0{,}459 beziehungsweise 0{,}547 und die saisonale Methode 0{,}326
-beziehungsweise 0{,}478. Der Transformer liefert auf den gemessenen Testzielen
-die genaueren Prognosen und die knapp höchste mittlere ROC-AUC, während die
-kalibrierte LSTM-Alarmregel den höchsten Ereignis-F1 erzielt. Im nicht
-injizierten Testabschnitt markieren LSTM und Transformer 105 beziehungsweise
-91 Stunden in 79 beziehungsweise 71 Ereignissen; 11.636 fehlende Messungen werden in
-1.460 Datenqualitätsereignissen getrennt ausgewiesen. Die synthetischen Tests
+LSTM-Forecaster einen mittleren Punkt-F1 von 0{,}674 und einen Ereignis-F1 von
+0{,}876. Der Transformer erreicht 0{,}670 beziehungsweise 0{,}824, der
+Autoencoder 0{,}534 beziehungsweise 0{,}653 und die saisonale Methode 0{,}436
+beziehungsweise 0{,}498. Der Transformer liefert auf den gemessenen Testzielen
+die genaueren Prognosen sowie die knapp höchste mittlere ROC-AUC und Average
+Precision. Die kalibrierte LSTM-Alarmregel erzielt dagegen den höchsten Punkt-
+und Ereignis-F1. Im nicht injizierten Testabschnitt markieren LSTM und
+Transformer 79 beziehungsweise 140 Stunden in 75 beziehungsweise 140
+Ereignissen; 8.458 fehlende Messungen werden in 2.016
+Datenqualitätsereignissen getrennt ausgewiesen. Die synthetischen Tests
 zeigen die erzielte Erkennungsleistung unter den definierten synthetischen
 Veränderungen.
-Fehlende vollständige reale Markierungen und eine räumlich unabhängige externe
-Datenquelle begrenzen weiterhin Aussagen über unbekannte reale Anomalien.
+Das Fehlen vollständiger realer Markierungen sowie einer zeitlich und räumlich
+unabhängigen externen Datenquelle begrenzt weiterhin Aussagen über unbekannte
+reale Anomalien.

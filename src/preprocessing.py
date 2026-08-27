@@ -47,8 +47,10 @@ def process_and_impute_full_data(filepath, train_end=TRAIN_END):
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="raise")
     for feature in FEATURES:
         df[feature] = pd.to_numeric(df[feature], errors="raise")
-        if df[feature].isna().any() or (df[feature] < 0).any():
-            raise ValueError(f"{feature} enthält fehlende oder negative Rohwerte")
+        if not np.isfinite(df[feature]).all() or (df[feature] < 0).any():
+            raise ValueError(
+                f"{feature} enthält fehlende, unendliche oder negative Rohwerte"
+            )
 
     # Metadaten sowie Anzahl der Mehrfachmessungen bleiben nachvollziehbar.
     meta_spalten = [

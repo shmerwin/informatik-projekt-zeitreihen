@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+from matplotlib.ticker import FuncFormatter
 
 BASIS = Path(__file__).parent.parent
 FIGURES = BASIS / "Dokumentation" / "Figures"
@@ -20,6 +21,15 @@ def speichern(fig, name):
     fig.savefig(FIGURES / name, dpi=170, bbox_inches="tight")
     plt.close(fig)
     print("gespeichert:", name)
+
+
+def deutsch(value, nachkommastellen=0):
+    return f"{value:,.{nachkommastellen}f}".replace(",", "_").replace(
+        ".", ","
+    ).replace("_", ".")
+
+
+deutsche_ganzzahl = FuncFormatter(lambda wert, _: deutsch(wert))
 
 
 # Rohdaten und Ergebnis der zentralen Preprocessing-Pipeline laden
@@ -44,8 +54,8 @@ for name, sensor in clean.groupby("name"):
 anteil = fehlt.sum() / aktiv.sum()
 sensoren = anteil.sort_values(ascending=False).index
 
-print("Aktive Sensorstunden:", int(aktiv.sum().sum()),
-      "| davon ergänzt:", int(fehlt.sum().sum()))
+print("Aktive Sensorstunden:", deutsch(aktiv.sum().sum()),
+      "| davon ergänzt:", deutsch(fehlt.sum().sum()))
 
 
 # Abbildung 1: Lücken vor und nach der Bereinigung (Heatmap)
@@ -91,16 +101,23 @@ speichern(fig, "preproc_luecken_heatmap.png")
 # Abbildung 2: typische und am stärksten ergänzte Sensorreihe
 beispiele = [sensoren[len(sensoren) // 2], anteil.idxmax()]
 fig, achsen = plt.subplots(2, 1, figsize=(13, 7), sharex=True)
+ausschnitt_start = clean["timestamp"].max() - pd.Timedelta(weeks=6)
 for ax, s in zip(achsen, beispiele):
-    sensor = clean[clean["name"] == s].set_index("timestamp")
+    gesamt = clean[clean["name"] == s].set_index("timestamp")
+    sensor = gesamt[gesamt.index >= ausschnitt_start]
     zeit = sensor.index.tz_convert("Europe/Berlin")
-    ax.plot(zeit, sensor["visitors"], lw=0.9, color="gray",
+    ax.plot(zeit, sensor["visitors"], lw=0.8, color="gray",
             label="bereinigte Zeitreihe")
     mi = sensor["is_imputed"].to_numpy(bool)
-    ax.scatter(zeit[mi], sensor.loc[mi, "visitors"], s=18, color="steelblue",
-               zorder=3, label="ergänzte Stunde")
-    ax.set_title(f"{s}: {len(sensor)} aktive Stunden, {mi.mean() * 100:.1f} % ergänzt")
+    ax.scatter(zeit[mi], sensor.loc[mi, "visitors"], s=8, alpha=0.55,
+               edgecolors="none", color="steelblue", zorder=3,
+               label="ergänzte Stunde", rasterized=True)
+    ax.set_title(
+        f"{s}: letzte 6 Wochen (Gesamtreihe: {deutsch(len(gesamt))} aktive "
+        f"Stunden, {deutsch(gesamt['is_imputed'].mean() * 100, 1)} % ergänzt)"
+    )
     ax.set_ylabel("Passanten pro Stunde")
+    ax.yaxis.set_major_formatter(deutsche_ganzzahl)
     ax.legend(loc="upper right", fontsize=8)
 achsen[1].set_xlabel("Lokale Zeit (Europe/Berlin)")
 speichern(fig, "preproc_beispielreihen.png")
@@ -125,7 +142,8 @@ ax.text(1.65, anzahl.max() * 0.85,
         fontsize=9, color="red")
 ax.set_xlabel("Lückenlänge")
 ax.set_ylabel("Anzahl Lücken")
-ax.set_title(f"Länge der {len(laengen)} Messlücken im Rohdatensatz")
+ax.yaxis.set_major_formatter(deutsche_ganzzahl)
+ax.set_title(f"Länge der {deutsch(len(laengen))} Messlücken im Rohdatensatz")
 speichern(fig, "preproc_lueckenlaengen.png")
 
 
@@ -134,6 +152,7 @@ anteile = (anteil.loc[sensoren[::-1]] * 100)
 fig, ax = plt.subplots(figsize=(9, 8))
 anteile.plot.barh(ax=ax, width=0.8, color="steelblue")
 ax.set_xlabel("Anteil ergänzter aktiver Stunden in %")
+ax.xaxis.set_major_formatter(deutsche_ganzzahl)
 ax.set_ylabel("")
 ax.set_title("Imputationsanteil innerhalb der aktiven Sensorzeit")
 ax.tick_params(axis="y", labelsize=7)
@@ -148,6 +167,8 @@ ax.hist(messungen.values, bins=range(1, max_messungen + 2), edgecolor="black",
         align="left", color="blue")
 ax.set_xlabel("Messungen für denselben Sensor in derselben Stunde")
 ax.set_ylabel("Häufigkeit")
+ax.xaxis.set_major_formatter(deutsche_ganzzahl)
+ax.yaxis.set_major_formatter(deutsche_ganzzahl)
 ax.set_title("Redundanzen im Rohdatensatz: oft mehrere Messungen pro Stunde")
 ax.set_xticks(range(1, max_messungen + 1, max(1, max_messungen // 8)))
 speichern(fig, "preproc_mehrfachmessungen.png")

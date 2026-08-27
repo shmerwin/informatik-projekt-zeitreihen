@@ -4,7 +4,8 @@
 Die aufbereiteten Sensordaten wurden mit vier getrennten Verfahren untersucht:
 Ein LSTM und ein kompakter Transformer bewerten Abweichungen von ihrer
 Prognose, ein Autoencoder bewertet Rekonstruktionsfehler und eine robuste
-parameterfreie Baseline die Abweichung vom gemessenen Wert 24 Stunden zuvor.
+Baseline ohne trainierbare Modellparameter die Abweichung vom gemessenen Wert
+24 Stunden zuvor.
 Die drei neuronalen Modelle lernen zusätzlich die Verweildauer; sämtliche
 Alarme und künstlichen Testanomalien beziehen sich aber ausschließlich auf die
 Passantenfrequenz. Die Verfahren verwenden dieselben Zeitabschnitte und
@@ -12,16 +13,16 @@ Entscheidungskriterien, ohne ihre Anomaliewerte miteinander zu vermischen.
 
 Von den beiden Prognosemodellen erzielt der Transformer auf den gemessenen
 Testzielen für beide Zielgrößen die geringeren Fehler und erreicht auf starken
-synthetischen Anomalien die knapp höchste mittlere ROC-AUC. Der LSTM
-erreicht mit der kalibrierten Alarmregel dagegen den höchsten Punkt- und
-Ereignis-F1. Die saisonale Baseline reagiert am robustesten auf zusätzliches
-Zählwertrauschen, bleibt bei der Erkennung der injizierten Ereignisse aber
-hinter den Prognosemodellen. Trotz einer größeren gewählten Architektur und
-des Trainings über die maximal vorgesehenen 200 Epochen erreicht auch der
-Autoencoder deren Gesamtkennzahlen nicht. Zusätzliche Attention geht damit mit
-geringeren Prognosefehlern und einer nahezu identischen, minimal höheren
-ROC-AUC einher, verbessert aber weder Average Precision noch die binäre
-Alarmregel durchgehend.
+synthetischen Anomalien die knapp höchste mittlere ROC-AUC und Average
+Precision. Der LSTM erreicht mit der kalibrierten Alarmregel dagegen den knapp
+höheren Punkt-F1 sowie den höchsten Ereignis-Recall und Ereignis-F1. Die
+saisonale Baseline reagiert am robustesten auf zusätzliches Zählwertrauschen,
+bleibt bei der Erkennung der injizierten Ereignisse aber hinter den drei
+neuronalen Modellen. Der Autoencoder übertrifft die saisonale Baseline, erreicht
+jedoch trotz 200 Trainingsepochen nicht die
+Gesamtkennzahlen der Prognosemodelle. Zusätzliche Attention geht damit mit
+geringeren Prognosefehlern sowie einer nahezu identischen, minimal höheren
+ROC-AUC und AP einher, verbessert die binäre Alarmregel aber nicht durchgehend.
 
 Für weiterführende Untersuchungen sind verifizierte Sensorlaufzeiten sowie
 eine zeitlich und möglichst räumlich unabhängige Datenquelle mit fachlich

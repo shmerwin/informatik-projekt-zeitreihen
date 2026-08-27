@@ -1,10 +1,15 @@
 """Kleine Regressionstests fuer den synthetischen Benchmark."""
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
+from src import benchmark
 from src.benchmark_evaluation import _add_count_noise
 from src.forecaster.common import CALIBRATION_END
 from src.benchmark_metrics import (
@@ -99,6 +104,42 @@ class NoiseTests(unittest.TestCase):
         self.assertEqual(first.loc[2, "visitors"], frame.loc[2, "visitors"])
         self.assertGreaterEqual(first.loc[1, "visitors"], 0)
         self.assertEqual(first.loc[1, "visitors"] % 1, 0)
+
+
+class BenchmarkBundleTests(unittest.TestCase):
+    def test_existing_detector_is_reselected_and_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            model_dir = Path(directory)
+            bundle_path = model_dir / "model_bundle.json"
+            bundle_path.write_text(json.dumps({
+                "model": None, "scaler": {},
+                "detector": {"point_threshold": 999},
+            }), encoding="utf-8")
+            new_detector = {"point_threshold": 1}
+            with (
+                patch.object(
+                    benchmark, "_model_setup",
+                    return_value=(model_dir, object()),
+                ),
+                patch.object(benchmark, "load_data", return_value=object()),
+                patch.object(benchmark, "make_windows", return_value=object()),
+                patch.object(benchmark, "split_masks", return_value=object()),
+                patch.object(benchmark, "validate_bundle_data") as validate,
+                patch.object(
+                    benchmark, "select_detector",
+                    return_value=(new_detector, {"selected": "new"}),
+                ) as select,
+                patch.object(
+                    benchmark, "injection_benchmark", return_value=({}, {}),
+                ),
+                patch.object(benchmark, "_benchmark_rows", return_value=[]),
+            ):
+                benchmark._run_one("seasonal", Path("unused.json"))
+
+            saved = json.loads(bundle_path.read_text(encoding="utf-8"))
+            self.assertEqual(saved["detector"], new_detector)
+            validate.assert_called_once()
+            select.assert_called_once()
 
 
 if __name__ == "__main__":

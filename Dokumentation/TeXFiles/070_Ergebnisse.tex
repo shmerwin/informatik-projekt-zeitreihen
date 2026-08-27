@@ -6,67 +6,86 @@
 Beim LSTM-Forecaster erreicht Kandidat~3 aus fünf Konfigurationen den
 kleinsten Tuning-Loss. Er verwendet 64 LSTM-, 32 Dense- und vier
 Embedding-Einheiten, 0{,}10 Dropout und eine Lernrate von 0{,}001. Sein
-Tuning-Loss beträgt 0{,}1158 bei Epoche~73. Das endgültige Modell wird daher
-73 Epochen auf 163.204 gemessenen Zielen aus Training und Tuning neu trainiert
-und besitzt 21.374 Parameter. Kalibrierungs- und Testabschnitt werden dabei
-nicht zum Anpassen der Modellgewichte verwendet. Abbildung~\ref{fig:forecaster_training}
-zeigt den Trainingsverlauf.
-
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=0.82\textwidth]{../saved_models/forecaster/training_history.png}
-  \caption{Pinball-Loss des endgültigen Forecaster-Trainings. Eigene
-    Darstellung.}
-  \label{fig:forecaster_training}
-\end{figure}
+Tuning-Loss beträgt 0{,}1308 bei Epoche~62. Das fortgesetzte Suchtraining
+endet nach 70 Epochen. Das endgültige Modell wird für 62 Epochen auf 148.045
+gemessenen Zielen aus Training und Tuning neu trainiert und besitzt 21.598
+Parameter. Kalibrierungs- und Testabschnitt werden dabei
+nicht zum Anpassen der Modellgewichte verwendet. Abbildung~\ref{fig:model_training}
+stellt für alle neuronalen Verfahren Training und Tuning gegenüber.
 
 Beim Transformer weist Kandidat~4 aus sechs Konfigurationen den geringsten
 Tuning-Loss auf und wird ausgewählt. Er verwendet Modellbreite 48, vier
 Attention-Köpfe, zwei Encoderblöcke,
-Feedforward-Breite 192 und 0{,}15 Dropout. Sein Tuning-Loss beträgt 0{,}1097.
-Das fortgesetzte Training endet nach 82 Epochen; der geringste Loss tritt bei
-Epoche~70 auf.
-Das für 70 Epochen neu trainierte Modell besitzt 61.062 Parameter.
-Abbildung~\ref{fig:transformer_training} zeigt den zugehörigen Verlauf.
-
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=0.82\textwidth]{../saved_models/transformer/training_history.png}
-  \caption{Pinball-Loss des endgültigen Transformer-Trainings. Eigene
-    Darstellung.}
-  \label{fig:transformer_training}
-\end{figure}
+Feedforward-Breite 192 und 0{,}15 Dropout. Sein Tuning-Loss beträgt 0{,}1216.
+Das fortgesetzte Training endet nach 91 Epochen; der geringste Loss tritt bei
+Epoche~79 auf.
+Das für 79 Epochen neu trainierte Modell besitzt 61.398 Parameter.
 
 Beim Autoencoder weist Kandidat~4 mit jeweils 64 LSTM-Einheiten in Encoder
 und Decoder, einer Lernrate von 0{,}0003 und höchstens sechs zusammenhängend
 maskierten Stunden den geringsten Tuning-Loss auf und wird ausgewählt. Beide
-verbleibenden Konfigurationen werden über die maximal vorgesehenen 200 Epochen
+verbleibenden Konfigurationen werden für die maximal vorgesehenen 200 Epochen
 trainiert; Early Stopping wird nicht ausgelöst. Der gewählte Kandidat erreicht
-dort einen Tuning-Loss von 0{,}0316 und
-besitzt 50.562 Parameter. Dieser Rekonstruktionsloss ist wegen einer anderen
-Zielfunktion nicht direkt mit den Pinball-Loss-Werten der Forecaster
-vergleichbar.
+seinen geringsten Tuning-Loss von 0{,}0368 bei Epoche~200. Das endgültige Modell
+wird deshalb für 200 Epochen auf den 148.045 Fenstern aus Training und Tuning
+neu trainiert und besitzt 50.562 Parameter. Die Epochenwahl bleibt damit durch
+die festgelegte Obergrenze beschränkt. Dieser Rekonstruktionsloss ist wegen
+einer anderen Zielfunktion nicht direkt mit den Pinball-Loss-Werten der
+Forecaster vergleichbar.
 
-Die Kalibrierung des LSTM wählt eine hohe Besucher-Schwelle von 1{,}2455 und
-eine kausale Zwei-von-drei-Regel oberhalb der niedrigeren Schwelle 0{,}3342.
-Beim Transformer betragen diese Schwellen 1{,}4101 und 0{,}4000; auch dort wird
-die Zwei-von-drei-Regel gewählt. Auf den 13.142 nicht injizierten
-Kalibrierungspunkten erzeugen die Regeln 120 beziehungsweise 115 Alarme, also
-0{,}913~\% beziehungsweise 0{,}875~\%. Damit halten sie die vorab festgelegte
+\begin{figure}[htb]
+  \centering
+  \begin{minipage}[t]{0.49\textwidth}
+    \centering
+    \small (a) LSTM-Forecaster
+    \includegraphics[width=\linewidth]{../saved_models/forecaster/training_history.png}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.49\textwidth}
+    \centering
+    \small (b) Transformer
+    \includegraphics[width=\linewidth]{../saved_models/transformer/training_history.png}
+  \end{minipage}
+
+  \begin{minipage}[t]{0.70\textwidth}
+    \centering
+    \small (c) Autoencoder
+    \includegraphics[width=\linewidth]{../saved_models/autoencoder/training_history.png}
+  \end{minipage}
+  \caption{Trainings- und Tuning-Loss der ausgewählten Kandidaten während der
+    Modellauswahl. Die gestrichelte Linie markiert die gewählte Epoche. Die
+    Trainingskurven enthalten die beschriebenen maskierten Kontexte, während
+    der Tuningabschnitt unverändert bleibt; ein niedrigerer Tuning-Loss ist
+    deshalb möglich. Die
+    Prognosemodelle verwenden den Pinball-Loss, der Autoencoder den
+    Huber-Fehler; die absoluten Niveaus sind daher nicht modellübergreifend
+    vergleichbar. Eigene Darstellung.}
+  \label{fig:model_training}
+\end{figure}
+
+Die Kalibrierung des LSTM wählt eine hohe Besucher-Schwelle von 1{,}4372 und
+eine kausale Drei-von-vier-Regel oberhalb der niedrigeren Schwelle 0{,}3758.
+Beim Transformer wird dagegen nur die direkte Schwelle 1{,}1659 ausgewählt;
+eine Persistenzregel verbessert das Kalibrierungsziel dort nicht. Auf den
+15.159 nicht injizierten Kalibrierungspunkten erzeugen die Regeln 95
+beziehungsweise 150 Alarme, also 0{,}627~\% beziehungsweise 0{,}990~\%. Damit
+halten sie die vorab festgelegte
 maximale Kalibrierungsalarmrate von 1~\% ein. Der
 Makro-Ereignis-F1 der Kalibrierungsinjektionen beträgt
-0{,}856 für den LSTM und 0{,}816 für den Transformer. Diese Werte sind
-Auswahlkriterien und keine Testergebnisse. 1.497 Kalibrierungsfenster
-(11{,}39~\%) bestehen zu mehr als der Hälfte aus imputierten Kontextstunden;
-88{,}61~\% enthalten mindestens zur Hälfte ursprünglich gemessene
-Kontextstunden.
+0{,}823 für den LSTM und 0{,}750 für den Transformer. Autoencoder und
+saisonale Baseline verwenden ebenfalls reine Direktschwellen; ihre
+Kalibrierungswerte betragen 3{,}6330 beziehungsweise 5{,}0205. Sie erzeugen 150
+beziehungsweise 132 Alarme und erreichen einen Makro-Ereignis-F1 von 0{,}443
+beziehungsweise 0{,}344. Diese Werte sind Auswahlkriterien und keine
+Testergebnisse. Bei 1.077 Kalibrierungsfenstern (7{,}10~\%) ist mehr als die
+Hälfte des Kontexts imputiert; bei 92{,}90~\% ist mindestens die Hälfte des
+Kontexts ursprünglich gemessen.
 
 \section{Prognosegüte im Testabschnitt}
 
 \begin{table}[htb]
   \centering
   \small
-  \caption{Prognosegüte auf 9.604 gemessenen Testzielen. Die Abdeckung und
+  \caption{Prognosegüte auf 13.142 gemessenen Testzielen. Die Abdeckung und
     Breite beziehen sich auf die empirisch kalibrierten Intervalle. Eigene
     Darstellung.}
   \label{tab:forecaster_forecast_results}
@@ -75,21 +94,21 @@ Kontextstunden.
     \hline
     Modell & Ziel & MAE & RMSE & MASE & rel. MAE & Abdeckung & Breite \\
     \hline
-    LSTM & Visitors & 11{,}796 & 19{,}338 & 0{,}663 & 0{,}671 & 98{,}90~\% & 160{,}75 \\
-    Transformer & Visitors & 11{,}166 & 18{,}381 & 0{,}628 & 0{,}637 & 99{,}10~\% & 167{,}02 \\
-    LSTM & AvgDuration & 3{,}054 & 5{,}550 & 0{,}693 & 0{,}726 & 98{,}97~\% & 35{,}53 \\
-    Transformer & AvgDuration & 2{,}972 & 5{,}494 & 0{,}675 & 0{,}709 & 98{,}97~\% & 41{,}94 \\
+    LSTM & Visitors & 12{,}399 & 21{,}213 & 0{,}720 & 0{,}581 & 99{,}01~\% & 161{,}04 \\
+    Transformer & Visitors & 11{,}748 & 19{,}941 & 0{,}682 & 0{,}546 & 98{,}93~\% & 161{,}30 \\
+    LSTM & AvgDuration & 3{,}020 & 5{,}786 & 0{,}677 & 0{,}716 & 99{,}00~\% & 39{,}44 \\
+    Transformer & AvgDuration & 2{,}964 & 5{,}748 & 0{,}664 & 0{,}708 & 98{,}93~\% & 41{,}49 \\
     \hline
   \end{tabular}
   }
 \end{table}
 
 Alle MASE-Werte liegen unter eins. Der Transformer erzielt bei beiden
-Zielgrößen kleinere MAE- und RMSE-Werte als der LSTM. Auf den 8.382
+Zielgrößen kleinere MAE- und RMSE-Werte als der LSTM. Auf den 10.716
 vollständig gemessenen $t-24$-Paaren verbessert er den Besucher-MAE um etwa
-36{,}3~\% gegenüber der saisonalen Prognose; beim LSTM sind es etwa
-32{,}9~\%. Die gemeinsame empirische Abdeckung beider Zielgrößen beträgt
-98{,}59~\% beim Transformer und 98{,}46~\% beim LSTM. Die
+45{,}4~\% gegenüber der saisonalen Prognose; beim LSTM sind es etwa
+41{,}9~\%. Die gemeinsame empirische Abdeckung beider Zielgrößen beträgt
+98{,}42~\% beim Transformer und 98{,}53~\% beim LSTM. Die
 Transformer-Intervalle sind dabei etwas breiter. Abdeckung und Breite sind
 daher gemeinsam zu interpretieren und belegen allein keine hohe
 Trennschärfe des Anomaliedetektors. Die Werte für \texttt{avgDuration} und die
@@ -98,38 +117,45 @@ Besucher-Score.
 
 \section{Anomaliekandidaten im nicht injizierten Testabschnitt}
 
-Die endgültig kalibrierte LSTM-Regel markiert 105 der 9.604 gemessenen
+Die endgültig kalibrierte LSTM-Regel markiert 79 der 13.142 gemessenen
 Testpunkte. Sie
-bilden 79 zusammenhängende Forecast-Ereignisse. 76 Punkte erhalten wegen
+bilden 75 zusammenhängende Forecast-Ereignisse. 32 Punkte erhalten wegen
 stark imputierter Kontexte oder einer absoluten Überschreitung unter einer
-Person niedrige Konfidenz. Abbildung~\ref{fig:forecaster_example} zeigt den
-Sensor mit den meisten Forecast-Kandidaten. Die rote Markierung bedeutet eine
-statistische Abweichung und keine fachlich bestätigte Anomalie.
+Person niedrige Konfidenz. Abbildung~\ref{fig:forecaster_example} zeigt einen
+automatisch ausgewählten siebentägigen Ausschnitt mit vier
+Forecast-Kandidaten eines Sensors.
+Die Markierungen bedeuten statistische Abweichungen und keine fachlich
+bestätigten Anomalien.
 
-Der Transformer markiert 91 Testpunkte in 71 Ereignissen; 68 Punkte besitzen
-niedrige Konfidenz. Beide Modelle weisen zusätzlich 11.636 nicht gemessene
-Teststunden in 1.460 Datenqualitätsereignissen aus. Alle 30 Sensoren erfüllen
+Der Transformer markiert 140 Testpunkte in 140 Ereignissen; 67 Punkte besitzen
+niedrige Konfidenz. Beide Modelle weisen zusätzlich 8.458 nicht gemessene
+Teststunden in 2.016 Datenqualitätsereignissen aus. Alle 30 Sensoren erfüllen
 im Jahresdatensatz die Mindestmenge für die Modellierung. Forecast- und
 Datenqualitätsereignisse bleiben getrennt, damit ein fehlender Datenstrom
 nicht als bestätigte Abweichung der Passantenfrequenz erscheint.
 
 Unter der Annahme, dass jeder Sensor von seiner ersten Messung bis zum globalen
-Datenende aktiv ist, umfasst der Juli-Test 21.240 mögliche Sensorstunden. Davon
-sind 9.604 Stunden gemessen (45{,}2~\%) und 11.636 nicht gemessen
-(54{,}8~\%). Neun Sensoren besitzen im Test keine gemessene Zielstunde; bei
-\enquote{Hauptstraße 36} sind 43 von 708 möglichen Stunden gemessen. Die
+Datenende aktiv ist, umfasst der Juni-Test 21.600 mögliche Sensorstunden. Davon
+sind 13.142 Stunden gemessen (60{,}8~\%) und 8.458 nicht gemessen
+(39{,}2~\%). Alle 30 Sensoren besitzen im Test gemessene Zielstunden, jedoch in
+unterschiedlichem Umfang: Beim Sensor \enquote{Kurpark -- Großer Teich --
+Toilette} sind 97 von 720 möglichen Stunden gemessen. Die
 Prognosekennzahlen beschreiben daher nur die beobachtbaren Testziele und nicht
-alle 30 Sensoren gleichmäßig.
+alle Sensoren gleichmäßig.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=\textwidth]{../saved_models/forecaster/anomalies_example.png}
-  \caption{Messung, Medianprognose, empirisch kalibriertes Intervall und
-    Forecast-Kandidaten eines Beispielsensors. Eigene Darstellung.}
+  \caption{Automatisch ausgewählter siebentägiger Ausschnitt mit Messung,
+    Medianprognose, empirisch kalibriertem Intervall und Forecast-Kandidaten.
+    Graue Flächen kennzeichnen fehlende Stunden und unterbrechen die Linien;
+    rote Punkte markieren die vier Kandidaten mit normaler Konfidenz.
+    Kandidaten mit niedriger Konfidenz treten in diesem Ausschnitt nicht auf.
+    Eigene Darstellung.}
   \label{fig:forecaster_example}
 \end{figure}
 
-Für die 79 LSTM- und 71 Transformer-Ereignisse liegen keine vollständigen
+Für die 75 LSTM- und 140 Transformer-Ereignisse liegen keine vollständigen
 fachlichen Bewertungen vor. Daher werden daraus keine realen Precision-,
 Recall-, F1- oder AUC-Werte berechnet.
 
@@ -151,23 +177,23 @@ jeweils gepaarten nicht injizierten Vergleichsdurchlauf.
     \hline
     Typ & Punkt-R & Punkt-F1 & Ereignis-R & Ereignis-F1 \\
     \hline
-    Spike, 2{,}0 & 0{,}917 & 0{,}542 & 0{,}917 & 0{,}902 \\
-    Dip, 2{,}0 & 0{,}889 & 0{,}667 & 0{,}889 & 0{,}906 \\
-    Level-Shift, 2{,}0 & 0{,}979 & 0{,}780 & 1{,}000 & 0{,}911 \\
-    Drift, 2{,}0 & 0{,}701 & 0{,}647 & 0{,}972 & 0{,}946 \\
-    Stuck-at, 6 h & 0{,}529 & 0{,}627 & 0{,}667 & 0{,}762 \\
+    Spike, 2{,}0 & 0{,}933 & 0{,}644 & 0{,}933 & 0{,}933 \\
+    Dip, 2{,}0 & 0{,}870 & 0{,}913 & 0{,}870 & 0{,}922 \\
+    Level-Shift, 2{,}0 & 0{,}938 & 0{,}736 & 1{,}000 & 0{,}878 \\
+    Drift, 2{,}0 & 0{,}608 & 0{,}582 & 0{,}917 & 0{,}943 \\
+    Stuck-at, 6 h & 0{,}367 & 0{,}494 & 0{,}600 & 0{,}706 \\
     \hline
   \end{tabular}
 \end{table}
 
 Die starken Level-Shifts werden vollständig auf Ereignisebene gefunden. Auch
-der Drift erreicht einen Ereignis-Recall von 0{,}972. Stuck-at bleibt mit
-einem Ereignis-F1 von 0{,}762 am schwierigsten. Bei Stärke 0{,}5 beträgt der
-Ereignis-Recall 0{,}167 für Spike, 0{,}185 für Dip, 0{,}556 für Level-Shift
-und 0{,}361 für Drift. Der Detektor erkennt folglich nicht jede definierte
-schwache Anomalie. Die vollständigen Werte aller Stärken einschließlich
-Precision, Average Precision (AP), IoU und Verzögerung stehen in
-\texttt{injection\_benchmark.csv} und \texttt{injection\_benchmark.json}.
+der Drift erreicht einen Ereignis-Recall von 0{,}917. Stuck-at bleibt mit
+einem Ereignis-F1 von 0{,}706 am schwierigsten. Bei Stärke 0{,}5 beträgt der
+Ereignis-Recall 0{,}100 für Spike, 0{,}130 für Dip, 0{,}361 für Level-Shift
+und 0{,}139 für Drift. Der Detektor erkennt folglich nicht jede definierte
+schwache Anomalie. Die vollständigen Ergebnisse aller Stärken einschließlich
+Precision, Average Precision (AP), IoU und Verzögerung sind im digitalen
+Begleitmaterial dokumentiert.
 
 \section{Vergleich der finalen Modelle}
 \label{sec:Ergebnisse_Modellvergleich}
@@ -188,26 +214,26 @@ Architektur- oder Regelauswahl verwendet.
     \hline
     Modell & Parameter & ROC-AUC & AP & Punkt-F1 & Ereignis-R & Ereignis-F1 \\
     \hline
-    LSTM-Forecaster & 21.374 & 0{,}959 & 0{,}463 & 0{,}653 & 0{,}889 & 0{,}885 \\
-    Transformer & 61.062 & 0{,}960 & 0{,}441 & 0{,}603 & 0{,}892 & 0{,}824 \\
-    Autoencoder & 50.562 & 0{,}880 & 0{,}241 & 0{,}459 & 0{,}584 & 0{,}547 \\
-    Saisonal $t-24$ & 0 & 0{,}858 & 0{,}118 & 0{,}326 & 0{,}564 & 0{,}478 \\
+    LSTM-Forecaster & 21.598 & 0{,}948 & 0{,}412 & 0{,}674 & 0{,}864 & 0{,}876 \\
+    Transformer & 61.398 & 0{,}949 & 0{,}422 & 0{,}670 & 0{,}853 & 0{,}824 \\
+    Autoencoder & 50.562 & 0{,}880 & 0{,}110 & 0{,}534 & 0{,}699 & 0{,}653 \\
+    Saisonal $t-24$ & 0 & 0{,}795 & 0{,}071 & 0{,}436 & 0{,}579 & 0{,}498 \\
     \hline
   \end{tabular}
   }
 \end{table}
 
-Der Transformer erreicht die knapp höchste ROC-AUC und den knapp höchsten
-Ereignis-Recall. Der LSTM besitzt dagegen die höhere AP sowie den höchsten
-Punkt- und Ereignis-F1. Die gemeinsame Testpopulation umfasst 9.604 gemessene
-Zielpunkte je Testdurchlauf; die saisonale Baseline kann davon 8.382 mit einer
+Der Transformer erreicht die knapp höchste ROC-AUC und AP. Der LSTM besitzt
+dagegen den knapp höheren Punkt-F1 sowie den höchsten Ereignis-Recall und
+Ereignis-F1. Die gemeinsame Testpopulation umfasst 13.142 gemessene
+Zielpunkte je Testdurchlauf; die saisonale Baseline kann davon 10.716 mit einer
 ebenfalls gemessenen $t-24$-Referenz bewerten. An den übrigen Punkten enthält
 sie
 sich eines Alarms und fehlende Scores werden für die Rankingmetriken als
 niedrigste Priorität eingeordnet. Ohne synthetische Injektionen alarmieren
 LSTM,
-Transformer, Autoencoder und saisonale Baseline bei 1{,}093~\%, 0{,}948~\%,
-1{,}270~\% beziehungsweise 0{,}448~\% der gemessenen Testziele.
+Transformer, Autoencoder und saisonale Baseline bei 0{,}601~\%, 1{,}065~\%,
+1{,}301~\% beziehungsweise 0{,}928~\% der gemessenen Testziele.
 
 \begin{figure}[htb]
   \centering
@@ -217,32 +243,34 @@ Transformer, Autoencoder und saisonale Baseline bei 1{,}093~\%, 0{,}948~\%,
   \label{fig:roc_pr_comparison}
 \end{figure}
 
-Im Rauschtest erzeugt der LSTM-Forecaster bei 5~\% und 15~\% Stärke 13 und 36
-zusätzliche Alarme, entsprechend 0{,}135~\% und 0{,}375~\% der gemessenen
-Testpunkte. Beim Transformer sind es 16 und 25 (0{,}167~\% und 0{,}260~\%),
-beim Autoencoder 11 und 19 (0{,}115~\% und 0{,}198~\%) und bei der saisonalen
-Baseline acht und zehn (0{,}083~\% und 0{,}104~\%). Die parameterfreie
-Baseline ist in diesem Test somit am stabilsten, besitzt aber die schwächeren
+Im Rauschtest erzeugt der LSTM-Forecaster bei 5~\% und 15~\% Stärke acht und 15
+zusätzliche Alarme, entsprechend 0{,}061~\% und 0{,}114~\% der gemessenen
+Testpunkte. Beim Transformer sind es elf und 27 (0{,}084~\% und 0{,}205~\%),
+beim Autoencoder 15 und 22 (0{,}114~\% und 0{,}167~\%) und bei der saisonalen
+Baseline vier und zwölf (0{,}030~\% und 0{,}091~\%). Die Baseline ohne
+trainierbare Modellparameter ist in diesem Test somit am
+stabilsten, besitzt aber die schwächeren
 Erkennungskennzahlen.
 
 \section{Diskussion und Limitationen}
 
 Die Ergebnisse beantworten die Forschungsfrage differenziert. Der Transformer
 prognostiziert beide Messgrößen genauer und erzielt die minimal höhere
-ROC-AUC; der LSTM erreicht dagegen die höhere Average Precision. Die auf dem
+ROC-AUC und die höhere Average Precision. Die auf dem
 Kalibrierungsabschnitt ausgewählte LSTM-Regel liefert auf den starken
-synthetischen Testinjektionen jedoch den höheren Punkt- und Ereignis-F1. Die
-zusätzliche Attention ist damit keine allgemeine Garantie für bessere binäre
-Alarme. Die saisonale Methode zeigt den Wert einer einfachen Baseline, und der
-Autoencoder bleibt trotz größerer Architektur sowie des Trainings über die
-maximal vorgesehenen 200 Epochen hinter den Prognosemodellen.
+synthetischen Testinjektionen jedoch den knapp höheren Punkt-F1 sowie den
+höheren Ereignis-Recall und Ereignis-F1. Die zusätzliche Attention ist damit
+keine allgemeine Garantie für bessere binäre Alarme. Die saisonale Methode
+zeigt den Wert einer einfachen Baseline. Der Autoencoder übertrifft sie in den
+zusammengefassten Erkennungskennzahlen, bleibt aber trotz 200 Trainingsepochen
+hinter beiden Prognosemodellen.
 
 Die synthetischen Referenzlabels gelten ausschließlich für die definierten
 Transformationen der Passantenfrequenz. Sie belegen weder den Recall unbekannter
-realer Anomalien noch die fachliche Richtigkeit der 79 LSTM- beziehungsweise 71
-Transformer-Kandidatenereignisse. Der Datensatz umfasst zwar rund 13 Monate,
+realer Anomalien noch die fachliche Richtigkeit der 75 LSTM- beziehungsweise 140
+Transformer-Kandidatenereignisse. Der Datensatz umfasst zwar rund zwölf Monate,
 aber nur einen Ort und ungefähr einen Jahreszyklus. Es fehlt eine zeitlich und
-räumlich unabhängige externe Bestätigung. Zudem wurden 34{,}46~\% der
+räumlich unabhängige externe Bestätigung. Zudem wurden 32{,}83~\% der
 Sensorstunden unter der verwendeten Aktivitätsannahme imputiert; diese Werte
 werden nicht als Ziele verwendet, können
 aber den Kontext beeinflussen. Zeitliche Abhängigkeit verhindert eine
