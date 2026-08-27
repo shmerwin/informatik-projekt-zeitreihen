@@ -16,7 +16,8 @@ from tensorflow.keras import layers, models
 from ..forecaster.common import (
     ALPHA, ANOMALY_FEATURE, DATA_PATH, FEATURES, ROOT, WINDOW_SIZE,
     add_masking_noise, evaluation_metadata, fit_scaler, load_data,
-    make_windows, select_by_validation_loss, set_seed, split_masks,
+    make_windows, select_by_validation_loss, set_seed,
+    split_masks,
 )
 
 
@@ -135,6 +136,7 @@ def train():
         batch_size=BATCH_SIZE,
         verbose=2,
     )
+    loss_history = [float(value) for value in history.history["loss"]]
 
     calibration_errors = reconstruction_errors(model, {
         name: values[masks["calibration"]] for name, values in data.items()
@@ -155,6 +157,7 @@ def train():
         "anomaly_feature": ANOMALY_FEATURE,
         "window_size": WINDOW_SIZE,
         "architecture": selected["params"],
+        "epochs": selected["best_epoch"],
         "model_search": {
             "objective": "successive halving; minimum tune val_loss",
             "initial_epochs": INITIAL_EPOCHS,
@@ -166,9 +169,10 @@ def train():
         },
         "training": {
             "max_epochs": MAX_EPOCHS,
-            "epochs_run": len(history.history["loss"]),
+            "epochs_run": len(loss_history),
             "sample_count": int(training.sum()),
             "batch_size": BATCH_SIZE,
+            "loss_history": loss_history,
             "max_mask_hours": selected["params"]["max_mask_hours"],
             "steps_per_epoch": int(
                 (training.sum() + BATCH_SIZE - 1) // BATCH_SIZE
@@ -192,10 +196,20 @@ def train():
     with open(MODEL_DIR / "model_bundle.json", "w", encoding="utf-8") as file:
         json.dump(bundle, file, ensure_ascii=False, indent=2, allow_nan=False)
 
-    plt.plot(history.history["loss"], label="Training")
-    plt.xlabel("Epoche")
-    plt.ylabel("Huber-Fehler")
-    plt.legend()
+    search_history = selected["history"]
+    epochs = range(1, len(search_history["loss"]) + 1)
+    plt.figure(figsize=(6, 3))
+    plt.plot(epochs, search_history["loss"], label="Training")
+    plt.plot(epochs, search_history["val_loss"], label="Tuning")
+    plt.axvline(
+        selected["best_epoch"], color="black", linestyle="--", linewidth=1,
+        label=f"Beste Epoche: {selected['best_epoch']}",
+    )
+    plt.xlim(left=1)
+    plt.xlabel("Epoche", fontsize=14)
+    plt.ylabel("Huber-Fehler", fontsize=14)
+    plt.tick_params(labelsize=12)
+    plt.legend(fontsize=12)
     plt.tight_layout()
     plt.savefig(MODEL_DIR / "training_history.png", dpi=150)
     plt.close()

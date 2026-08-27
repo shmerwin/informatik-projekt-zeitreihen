@@ -1,76 +1,76 @@
 {
   "forecast": {
     "visitors": {
-      "mae": 11.79647354758387,
-      "rmse": 19.338339242462844,
-      "mase": 0.6630885029584125,
-      "relative_mae_vs_t_minus_24_test": 0.6711099593737697,
-      "model_mae_on_t_minus_24_pairs": 12.379424657424813,
-      "seasonal_naive_test_mae": 18.446194225721786,
-      "seasonal_naive_test_pairs": 8382,
-      "mase_training_scale": 17.790194664744053,
-      "interval_coverage": 0.9889629321116201,
-      "mean_interval_width": 160.7500837354303
+      "mae": 12.399472778458803,
+      "rmse": 21.21283570934518,
+      "mase": 0.7196299753215245,
+      "relative_mae_vs_t_minus_24_test": 0.5812703402074783,
+      "model_mae_on_t_minus_24_pairs": 13.053468044037796,
+      "seasonal_naive_test_mae": 22.456793579693915,
+      "seasonal_naive_test_pairs": 10716,
+      "mase_training_scale": 17.23034504353272,
+      "interval_coverage": 0.9901080505250343,
+      "mean_interval_width": 161.03792357642305
     },
     "avgDuration": {
-      "mae": 3.0535343527935854,
-      "rmse": 5.550227301721904,
-      "mase": 0.6930235820697646,
-      "relative_mae_vs_t_minus_24_test": 0.7262364616817492,
-      "model_mae_on_t_minus_24_pairs": 2.90827118142031,
-      "seasonal_naive_test_mae": 4.00457885946075,
-      "seasonal_naive_test_pairs": 8382,
-      "mase_training_scale": 4.406104542177319,
-      "interval_coverage": 0.9896917950853811,
-      "mean_interval_width": 35.52976399504271
+      "mae": 3.019586859783723,
+      "rmse": 5.785944120259814,
+      "mase": 0.6765667310337792,
+      "relative_mae_vs_t_minus_24_test": 0.7157163674747458,
+      "model_mae_on_t_minus_24_pairs": 2.883763906944788,
+      "seasonal_naive_test_mae": 4.029199328107502,
+      "seasonal_naive_test_pairs": 10716,
+      "mase_training_scale": 4.463102782440781,
+      "interval_coverage": 0.9899558666869579,
+      "mean_interval_width": 39.44408954908826
     }
   },
-  "all_feature_interval_coverage": 0.9845897542690546,
+  "all_feature_interval_coverage": 0.9853142596256278,
   "anomaly_feature": "visitors",
   "detector": {
     "config": {
       "high_alpha": 0.005,
-      "point_threshold": 1.2454958879060882,
+      "point_threshold": 1.4371863579245812,
       "low_alpha": 0.05,
-      "low_threshold": 0.33416266926746413,
-      "persistence_window": 3,
-      "required_exceedances": 2,
+      "low_threshold": 0.37582251649269577,
+      "persistence_window": 4,
+      "required_exceedances": 3,
       "selection_period": [
-        "2026-06-01 00:00:00+00:00",
-        "2026-07-01 00:00:00+00:00"
+        "2026-05-01 00:00:00+00:00",
+        "2026-06-01 00:00:00+00:00"
       ],
       "max_calibration_alarm_rate": 0.01
     },
     "calibration_selection": {
       "detector": {
         "high_alpha": 0.005,
-        "point_threshold": 1.2454958879060882,
+        "point_threshold": 1.4371863579245812,
         "low_alpha": 0.05,
-        "low_threshold": 0.33416266926746413,
-        "persistence_window": 3,
-        "required_exceedances": 2
+        "low_threshold": 0.37582251649269577,
+        "persistence_window": 4,
+        "required_exceedances": 3
       },
-      "calibration_alarm_count": 120,
-      "calibration_alarm_rate": 0.009131030284583777,
-      "macro_event_f1": 0.8563115601778541,
-      "macro_incremental_event_recall": 0.8510233918128656,
+      "calibration_alarm_count": 95,
+      "calibration_alarm_rate": 0.006266904149350221,
+      "macro_event_f1": 0.822906814493796,
+      "macro_incremental_event_recall": 0.7836842105263158,
       "event_f1_by_type": {
-        "spike": 0.8717347543270936,
-        "dip": 0.8004221254221253,
-        "level_shift": 0.9280626780626781,
-        "drift": 0.8996754614145918,
-        "stuck_at": 0.7816627816627816
+        "spike": 0.8646412530558872,
+        "dip": 0.8151620265788514,
+        "level_shift": 0.8194518125552609,
+        "drift": 0.8856493506493507,
+        "stuck_at": 0.7296296296296297
       }
     }
   },
   "counts": {
     "modeled_sensors": 30,
     "data_quality_sensors": 30,
-    "measured_test_points": 9604,
-    "forecast_candidates": 105,
-    "missing_measurements": 11636,
-    "forecast_events": 79,
-    "missing_events": 1460
+    "measured_test_points": 13142,
+    "forecast_candidates": 79,
+    "missing_measurements": 8458,
+    "forecast_events": 75,
+    "missing_events": 2016
   },
   "real_labels": null,
   "limitation": "Ohne bestätigte Ereignis- oder Sensorlabels sind statistische Abweichungen nur Anomalie-Kandidaten."

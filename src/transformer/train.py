@@ -194,6 +194,7 @@ def train():
         batch_size=BATCH_SIZE,
         verbose=2,
     )
+    loss_history = [float(value) for value in history.history["loss"]]
 
     calibration_prediction = predict_quantiles(
         model, data, masks["calibration"]
@@ -227,6 +228,7 @@ def train():
             "sample_count": int(training.sum()),
             "batch_size": BATCH_SIZE,
             "max_mask_hours": MAX_MASK_HOURS,
+            "loss_history": loss_history,
             "steps_per_epoch": int(
                 (training.sum() + BATCH_SIZE - 1) // BATCH_SIZE
             ),
@@ -243,10 +245,20 @@ def train():
     with open(MODEL_DIR / "model_bundle.json", "w", encoding="utf-8") as file:
         json.dump(bundle, file, ensure_ascii=False, indent=2, allow_nan=False)
 
-    plt.plot(history.history["loss"], label="Training")
-    plt.xlabel("Epoche")
-    plt.ylabel("Quantile-Loss")
-    plt.legend()
+    search_history = selected["history"]
+    epochs = range(1, len(search_history["loss"]) + 1)
+    plt.figure(figsize=(6, 3))
+    plt.plot(epochs, search_history["loss"], label="Training")
+    plt.plot(epochs, search_history["val_loss"], label="Tuning")
+    plt.axvline(
+        selected["best_epoch"], color="black", linestyle="--", linewidth=1,
+        label=f"Beste Epoche: {selected['best_epoch']}",
+    )
+    plt.xlim(left=1)
+    plt.xlabel("Epoche", fontsize=14)
+    plt.ylabel("Quantile-Loss", fontsize=14)
+    plt.tick_params(labelsize=12)
+    plt.legend(fontsize=12)
     plt.tight_layout()
     plt.savefig(MODEL_DIR / "training_history.png", dpi=150)
     plt.close()

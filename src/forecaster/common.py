@@ -13,7 +13,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 from ..data_config import (
-    CALIBRATION_END_UTC, TRAIN_END_UTC, TUNE_END_UTC,
+    CALIBRATION_END_UTC, DATA_END_UTC, TRAIN_END_UTC, TUNE_END_UTC,
 )
 
 
@@ -35,12 +35,14 @@ AUXILIARY_FEATURES = [
 TRAIN_END = pd.Timestamp(TRAIN_END_UTC)
 TUNE_END = pd.Timestamp(TUNE_END_UTC)
 CALIBRATION_END = pd.Timestamp(CALIBRATION_END_UTC)
+DATA_END = pd.Timestamp(DATA_END_UTC)
 ALPHA = 0.01
 SEED = 42
 
 
 def set_seed(seed=SEED):
     tf.keras.utils.set_random_seed(seed)
+    tf.config.experimental.enable_op_determinism()
 
 
 def select_by_validation_loss(
@@ -66,6 +68,7 @@ def select_by_validation_loss(
         "params": params,
         "model": None,
         "parameters": None,
+        "training_losses": [],
         "losses": [],
         "stages": [],
         "pruned_after_round": None,
@@ -77,10 +80,17 @@ def select_by_validation_loss(
             dict(state["params"]), state["model"], initial_epoch,
             target_epoch, early_stopping,
         )
+        training_values = np.asarray(history.history.get("loss", []), float)
         values = np.asarray(history.history.get("val_loss", []), float)
-        if not len(values) or not np.isfinite(values).all():
+        if (
+            not len(values)
+            or len(training_values) != len(values)
+            or not np.isfinite(training_values).all()
+            or not np.isfinite(values).all()
+        ):
             raise ValueError(
-                f"Kandidat {state['number']} benötigt endliche val_loss-Werte"
+                f"Kandidat {state['number']} benötigt gleich viele endliche "
+                "loss- und val_loss-Werte"
             )
         if not early_stopping and len(values) != target_epoch - initial_epoch:
             raise ValueError(
@@ -90,6 +100,7 @@ def select_by_validation_loss(
         if state["parameters"] not in (None, parameters):
             raise ValueError("Parameterzahl eines warm gestarteten Modells änderte sich")
         state["model"], state["parameters"] = model, parameters
+        state["training_losses"].extend(training_values.tolist())
         state["losses"].extend(values.tolist())
         best = int(np.argmin(state["losses"]))
         stage_best = int(np.argmin(values))
@@ -161,7 +172,13 @@ def select_by_validation_loss(
             "stages": state["stages"],
         })
         state["model"] = None
-    selected = next(trial for trial in trials if trial["status"] == "selected")
+    selected = dict(next(
+        trial for trial in trials if trial["status"] == "selected"
+    ))
+    selected["history"] = {
+        "loss": [float(value) for value in winner["training_losses"]],
+        "val_loss": [float(value) for value in winner["losses"]],
+    }
     return selected, trials
 
 
@@ -219,6 +236,12 @@ def load_data(path=DATA_PATH, min_train_points=72):
     if not pflicht.issubset(df.columns):
         raise ValueError(f"Fehlende Spalten: {sorted(pflicht - set(df.columns))}")
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    if (df["timestamp"] >= DATA_END).any():
+        last = df.loc[df["timestamp"] >= DATA_END, "timestamp"].max()
+        raise ValueError(
+            f"Modelldaten enthalten mit {last} Werte am oder nach dem "
+            f"exklusiven Datenende {DATA_END}."
+        )
     df["is_imputed"] = df["is_imputed"].astype(bool)
     if df.duplicated(["name", "timestamp"]).any():
         raise ValueError("Doppelte Sensorstunden nach dem Preprocessing")
@@ -232,6 +255,59 @@ def load_data(path=DATA_PATH, min_train_points=72):
         sensoren = genug[genug >= min_train_points].index
         df = df[df["name"].isin(sensoren)]
     return df.sort_values(["name", "timestamp"]).reset_index(drop=True)
+
+
+def validate_bundle_data(bundle, data, masks, require_auxiliary=False):
+    """Lehnt Modell-Bundles ab, die nicht zum aktuellen Datensatz passen."""
+    errors = []
+    if bundle.get("features") != FEATURES:
+        errors.append(f"features={bundle.get('features')!r} statt {FEATURES!r}")
+    if bundle.get("window_size") != WINDOW_SIZE:
+        errors.append(
+            f"window_size={bundle.get('window_size')!r} statt {WINDOW_SIZE}"
+        )
+    if (
+        require_auxiliary
+        and bundle.get("auxiliary_features") != AUXILIARY_FEATURES
+    ):
+        errors.append("auxiliary_features passen nicht zur aktuellen Fensterlogik")
+
+    expected_splits = {
+        "train_end": TRAIN_END,
+        "tune_end": TUNE_END,
+        "calibration_end": CALIBRATION_END,
+    }
+    stored_splits = bundle.get("splits", {})
+    for name, expected in expected_splits.items():
+        stored = pd.to_datetime(
+            stored_splits.get(name), utc=True, errors="coerce"
+        )
+        if pd.isna(stored) or stored != expected:
+            errors.append(
+                f"splits.{name}={stored_splits.get(name)!r} statt {expected}"
+            )
+
+    times = pd.to_datetime(data["time"], utc=True)
+    stored_last = pd.to_datetime(
+        bundle.get("data_period", {}).get("last_target"),
+        utc=True, errors="coerce",
+    )
+    actual_last = times.max() if len(times) else pd.NaT
+    if pd.isna(stored_last) or stored_last != actual_last:
+        errors.append(
+            f"data_period.last_target={bundle.get('data_period', {}).get('last_target')!r} "
+            f"statt {actual_last}"
+        )
+
+    actual_counts = {
+        name: int(np.asarray(mask).sum()) for name, mask in masks.items()
+    }
+    if bundle.get("sample_counts") != actual_counts:
+        errors.append(
+            f"sample_counts={bundle.get('sample_counts')!r} statt {actual_counts!r}"
+        )
+    if errors:
+        raise ValueError("Inkompatibles Modell-Bundle:\n- " + "\n- ".join(errors))
 
 
 def fit_scaler(df):

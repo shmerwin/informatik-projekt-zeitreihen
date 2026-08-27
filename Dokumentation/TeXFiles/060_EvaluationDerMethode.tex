@@ -18,22 +18,25 @@ Anzahl ursprünglich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
     \hline
     Teilmenge & Beginn & Ende (exklusiv) & Zielpunkte \\
     \hline
-    Training & erster möglicher Zielwert & 01.05.2026 & 148.045 \\
-    Tuning & 01.05.2026 & 01.06.2026 & 15.159 \\
-    Kalibrierung & 01.06.2026 & 01.07.2026 & 13.142 \\
-    Test & 01.07.2026 & Reihenende & 9.604 \\
+    Training & erster möglicher Zielwert & 01.04.2026 & 136.383 \\
+    Tuning & 01.04.2026 & 01.05.2026 & 11.662 \\
+    Kalibrierung & 01.05.2026 & 01.06.2026 & 15.159 \\
+    Test & 01.06.2026 & 01.07.2026 & 13.142 \\
     \hline
   \end{tabular}
 \end{table}
 
-Der Juli bildet den zeitlich letzten zusammenhängenden Abschnitt des
-Datensatzes. Fehlende Zielwerte werden nicht bewertet; die 9.604 gemessenen
-Zielpunkte bilden die Testpopulation. Eine nachträgliche Wahl eines früheren,
-vollständigeren Monats anhand seiner bereits bekannten Abdeckung würde den
-Testzeitraum selbst zu einer Auswahlentscheidung machen und eine vollständige
-Neuschätzung aller Modelle und Alarmregeln erfordern. Der Juli bleibt deshalb
-als chronologischer Holdout erhalten; seine ungleiche Sensorabdeckung wird bei
-der Interpretation ausdrücklich berücksichtigt.
+Der Juni bildet den letzten Monat des finalen Snapshots. Seine 21.600 aktiven
+Sensorstunden umfassen 13.142 gemessene Zielpunkte; alle 30 Sensoren sind mit
+Messungen vertreten. Die Wahl dieses Monats erfolgte jedoch retrospektiv: In
+einem zuvor untersuchten, bis Ende Juli reichenden Abruf besaßen neun Sensoren
+im Juli keine einzige Messung. Daraufhin wurden das Datenende und sämtliche
+Zeitabschnitte um einen Monat vorgezogen sowie alle Modelle und Alarmregeln neu
+geschätzt. Der Juni ist deshalb ein chronologischer Testblock,
+aber kein unberührt festgelegter konfirmatorischer Holdout. Die automatisierte
+Modellauswahl verwendet seine Werte nicht; die menschliche Entscheidung über
+den Auswertungszeitraum beruhte hingegen auf bereits betrachteter
+Sensorabdeckung.
 
 Für LSTM-Forecaster und Autoencoder werden jeweils fünf, für den Transformer
 sechs vorab festgelegte Architektur- und Lernratenkombinationen verglichen.
@@ -49,16 +52,16 @@ ausschließen, dass ein früh ausgeschiedener Kandidat bei vollständigem
 Training einen geringeren Loss erreicht.
 
 Der LSTM-Forecaster erhält höchstens 80 Epochen bei einer Geduld von acht, der
-Transformer 120 bei einer Geduld von zwölf und der Autoencoder 200 bei einer
-Geduld von 15 Epochen. Die Batchgröße beträgt einheitlich 512. Das ausgewählte
-Modell wird anschließend für seine beste Epochenzahl auf Training und Tuning
-gemeinsam, also auf 163.204 Fenstern mit identischen Zielzeitpunkten, neu
+Transformer 120 bei einer Geduld von zwölf. Die Autoencoder-Architektursuche
+ist bei einer Geduld von 15 auf 200 Epochen begrenzt. Die Batchgröße beträgt
+einheitlich 512. Das jeweils ausgewählte Modell wird anschließend für seine
+beste Epochenzahl auf Training und Tuning
+gemeinsam, also auf 148.045 Fenstern mit identischen Zielzeitpunkten, neu
 trainiert. Erst danach bestimmt der Kalibrierungsabschnitt die Schwellen und
 gegebenenfalls eine Persistenzregel. Der Testabschnitt geht nicht in die
 automatisierte Auswahl von Architektur, Epochenzahl, Schwellenwerten oder
-Persistenzregel ein. Da seine Ergebnisse während der retrospektiven
-Modellentwicklung bereits einsehbar waren, ist er jedoch nicht als vollständig
-unabhängige konfirmatorische Prüfung zu interpretieren.
+Persistenzregel ein. Die vorausgegangene menschliche Wahl des Monats bleibt
+davon zu unterscheiden und begrenzt die Aussagekraft als unabhängige Prüfung.
 
 \section{Bewertung der Prognosegüte}
 
@@ -71,14 +74,17 @@ Koehler berichtet \cite{hyndman2006accuracy}:
  \frac{H^{-1}\sum_{h=1}^{H}|y_{T+h}-\hat{y}_{T+h}|}
  {(T-24)^{-1}\sum_{t=25}^{T}|y_t-y_{t-24}|}.
 \end{equation}
-Der Nenner wird ausschließlich aus Paaren berechnet, bei denen sowohl das
-Trainingsziel als auch sein $t-24$-Vergleichswert gemessen wurden. Damit ist
-MASE von dem ergänzend angegebenen Verhältnis
+In der Implementierung werden Zähler und Nenner je Zielgröße über alle
+zulässigen Sensorstunden des jeweiligen Abschnitts gepoolt; es wird also nicht
+zunächst ein MASE je Sensor berechnet und anschließend gemittelt. Der Nenner
+wird ausschließlich aus Paaren berechnet, bei denen sowohl das Trainingsziel
+als auch sein $t-24$-Vergleichswert gemessen wurden. Damit ist MASE von dem
+ergänzend angegebenen Verhältnis
 $\operatorname{MAE}_{\mathrm{Modell,Test}}/
 \operatorname{MAE}_{t-24,\mathrm{Test}}$ zu unterscheiden. Werte unter eins
 bedeuten jeweils eine Verbesserung gegenüber der zugehörigen Skalierung
 beziehungsweise Testbaseline. Auch der direkte Testvergleich verwendet nur
-die 8.382 Testpunkte mit gemessenem aktuellem Wert und gemessenem $t-24$-Wert.
+die 10.716 Testpunkte mit gemessenem aktuellem Wert und gemessenem $t-24$-Wert.
 
 Für die empirisch kalibrierten Intervalle werden die marginale Abdeckung je
 Zielgröße, die gemeinsame Abdeckung beider Zielgrößen und die mittlere
@@ -175,47 +181,17 @@ weil dann pro Ursprung nur wenige Ereignisse und Sensorstunden verblieben.
 
 \section{Reproduzierbarkeit}
 
-Die explorative Datenqualitätsanalyse ist in \texttt{analyse/analyse.py}
-erhalten; \texttt{analyse/preprocessing\_plots.py} erzeugt die
-Diagnoseabbildungen zur Aufbereitung. Die vollständige Verarbeitung wird aus
-dem Projektverzeichnis mit folgenden Befehlen reproduziert:
-\begin{verbatim}
-py -3.12 -m src.download_data `
-  --since 2025-06-30T00:00:00Z `
-  --until 2026-07-31T00:00:00Z
-py -3.12 -m src.preprocessing
-py -3.12 -m src.forecaster.train
-py -3.12 -m src.transformer.train
-py -3.12 -m src.autoencoder.train
-py -3.12 -m src.seasonal_baseline
-py -3.12 -m src.benchmark
-py -3.12 -m src.forecaster.evaluate
-py -3.12 -m src.forecaster.evaluate --model-dir saved_models/transformer
-\end{verbatim}
-Die festen Downloadgrenzen beschränken erneute Abrufe auf denselben Zeitraum;
-nachträgliche Änderungen des API-Bestands können nicht ausgeschlossen werden.
-Die berichteten Kennzahlen und gespeicherten Modellartefakte beziehen sich auf
-den beim Trainingslauf vorliegenden Abrufstand.
-Die Trainingsbefehle können bei unveränderten Rohdaten modellweise ausgeführt
-werden. Der gespeicherte LSTM-Forecaster wird mit
-\texttt{py -3.12 -m src.forecaster.evaluate} erneut ausgewertet; derselbe
-Aufruf mit
-\texttt{--model-dir saved\_models/transformer} wertet den Transformer aus. Der
-davon getrennte synthetische Vergleich aller vier Verfahren wird mit
-\texttt{py -3.12 -m src.benchmark} ausgeführt. Modellparameter,
-Splits, Skalierung, Kalibrierung und Detektorregel werden in
-\texttt{model\_bundle.json} gespeichert. Die Auswertung erzeugt unter anderem
-\texttt{evaluation\_metrics.json}, \texttt{anomalies.csv},
-\texttt{anomaly\_events.csv}, \texttt{labels\_template.csv},
-\texttt{event\_review\_template.csv} und die Abbildung
-\texttt{anomalies\_example.png}. Der gemeinsame Injektionstest schreibt die
-Detailergebnisse je Modell und fasst alle vier Verfahren zusätzlich in
-\texttt{saved\_models/benchmark/model\_comparison.csv} sowie in der gemeinsamen
-ROC-/PR-Abbildung zusammen.
-Die Implementierung trennt Anomalieinjektion, Metrikberechnung und
-Modellauswertung in eigenständige Module.
+Der untersuchte Datenstand umfasst den halboffenen Abrufzeitraum vom
+30.~Juni 2025, 00:00~Uhr, bis zum 1.~Juli 2026, 00:00~Uhr UTC sowie 30
+Karten-Feature-IDs. Sämtliche Aufbereitungsregeln, chronologischen
+Teilungsgrenzen, Modellkonfigurationen, Trainingsdauern und
+Kalibrierungskriterien sind in den vorangegangenen Abschnitten angegeben. Für
+das Modelltraining und die synthetischen Injektionen werden feste, voneinander
+getrennte Zufallsstartwerte verwendet; bei den neuronalen Modellen sind
+deterministische TensorFlow-Operationen aktiviert.
 
-
-
-
- 
+Da die städtische API historische Werte nachträglich verändern kann und die
+umfangreichen Rohdaten nicht Bestandteil des Git-Repositories sind, ist ein
+späterer Neuabruf nicht zwingend bitgleich mit dem untersuchten Snapshot. Die
+berichteten Datenmengen und Ergebnisse beziehen sich daher ausschließlich auf
+den am 27.~August 2026 verwendeten Abrufstand.

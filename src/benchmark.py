@@ -21,7 +21,8 @@ from .benchmark_evaluation import (
 from .benchmark_injections import ANOMALY_TYPES
 from .benchmark_metrics import _benchmark_rows
 from .forecaster.common import (
-    DATA_PATH, MODEL_DIR, load_data, make_windows,
+    DATA_PATH, MODEL_DIR, load_data, make_windows, split_masks,
+    validate_bundle_data,
 )
 
 
@@ -89,20 +90,24 @@ def _run_one(name, data_path):
         bundle = json.load(file)
     df = load_data(data_path)
     data = make_windows(df, bundle["scaler"])
+    masks = split_masks(data)
+    validate_bundle_data(
+        bundle, data, masks,
+        require_auxiliary=name in {"forecaster", "transformer"},
+    )
     model = (
         tf.keras.models.load_model(model_dir / bundle["model"], compile=False)
         if bundle.get("model") else None
     )
-    if "detector" not in bundle:
-        detector, selection = select_detector(
-            df, data, model, bundle, score_function
-        )
-        bundle["detector"] = detector
-        bundle["detector_selection"] = selection
-        with open(
-            model_dir / "model_bundle.json", "w", encoding="utf-8"
-        ) as file:
-            json.dump(bundle, file, ensure_ascii=False, indent=2, allow_nan=False)
+    detector, selection = select_detector(
+        df, data, model, bundle, score_function
+    )
+    bundle["detector"] = detector
+    bundle["detector_selection"] = selection
+    with open(
+        model_dir / "model_bundle.json", "w", encoding="utf-8"
+    ) as file:
+        json.dump(bundle, file, ensure_ascii=False, indent=2, allow_nan=False)
     results, reference = injection_benchmark(
         df, data, model, bundle, score_function
     )

@@ -33,9 +33,11 @@ gesonderten Lernraten-Aufwärmphase \cite{xiong2020layernorm}.
 
 Für lange Prognosefenster fasst PatchTST benachbarte Zeitpunkte zu Tokens
 zusammen und verkleinert dadurch die Attention-Matrix
-\cite{nie2023patchtst}. Das vorliegende Fenster umfasst jedoch nur 24 Stunden.
-Damit einzelne Spikes und Dips erhalten bleiben, wird deshalb jede Stunde als
-eigenes Token verwendet. Die guten Ergebnisse einfacher linearer
+\cite{nie2023patchtst}. Das sequenzielle Eingabefenster der vorliegenden Arbeit
+umfasst jedoch nur 24 Stunden; ein getrenntes Wertepaar der Stunde $t-168$
+liefert zusätzlich eine Wochenreferenz, ohne die Attention-Sequenz zu
+verlängern. Damit einzelne Spikes und Dips erhalten bleiben, wird jede Stunde
+des Fensters als eigenes Token verwendet. Die guten Ergebnisse einfacher linearer
 Zeitreihenmodelle von Zeng et al. motivieren zusätzlich einen direkten linearen
 Pfad von den historischen Messwerten zur Prognose
 \cite{zeng2023transformers}. Er ergänzt die Attention, ersetzt sie aber nicht.
@@ -64,7 +66,10 @@ Verfahren verwenden ebenfalls zeitliche Maskierung, kombinieren diese jedoch
 teilweise mit mehreren Transformern, Frequenzdarstellungen und zusätzlichen
 Fehlerfunktionen \cite{fang2024tfmae}. Für den kontrollierten Vergleich und
 das 24-Stunden-Eingabefenster dieser Untersuchung wird ausschließlich das
-Maskierungsprinzip übernommen.
+Maskierungsprinzip übernommen. Der Autoencoder rekonstruiert dabei die
+unverdeckte Sequenz. Bei den beiden Prognosemodellen dient eine kürzere
+Maskierung nur während des Trainings als Robustheitsaugmentation; deren
+Lernziel bleibt die nächste Stunde.
 
 \section[Fairer Vergleich]{Komplexität und fairer Vergleich}
 

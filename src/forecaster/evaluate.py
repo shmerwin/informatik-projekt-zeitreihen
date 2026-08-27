@@ -13,6 +13,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -24,7 +25,7 @@ from ..detector import detector_output, event_ids
 from .common import (
     ANOMALY_FEATURE, DATA_PATH, FEATURES, MODEL_DIR, anomaly_scores,
     conformal_bounds, inverse_values, load_data, make_windows, predict_quantiles,
-    split_masks,
+    split_masks, validate_bundle_data,
 )
 
 
@@ -185,29 +186,106 @@ def _event_table(candidates, event_column, alert_type):
     return table
 
 
+def _example_window(candidates):
+    measured = candidates[candidates["actual_visitors"].notna()]
+    normal_hits = measured[
+        measured["forecast_anomaly"] & measured["confidence"].ne("low")
+    ]
+    hits = normal_hits
+    if normal_hits.empty:
+        hits = measured[measured["forecast_anomaly"]]
+    if hits.empty:
+        return None, candidates.iloc[:0].copy()
+
+    starts = hits[["sensor", "time"]].copy()
+    starts["start"] = starts["time"].dt.floor("D") - pd.Timedelta(days=3)
+    starts = starts.drop_duplicates(["sensor", "start"])
+    options = []
+    for row in starts.itertuples(index=False):
+        sensor_rows = candidates[candidates["sensor"].eq(row.sensor)]
+        start = max(row.start, sensor_rows["time"].min())
+        end = min(
+            row.start + pd.Timedelta(days=7),
+            sensor_rows["time"].max() + pd.Timedelta(hours=1),
+        )
+        hours = pd.date_range(start, end, freq="1h", inclusive="left")
+        plot = sensor_rows.set_index("time").reindex(hours)
+        plot.index.name = "time"
+        plot["sensor"] = row.sensor
+        plot["forecast_anomaly"] = (
+            plot["forecast_anomaly"].fillna(False).astype(bool)
+        )
+        eligible = plot["forecast_anomaly"] & plot["actual_visitors"].notna()
+        if not normal_hits.empty:
+            eligible &= plot["confidence"].ne("low")
+        coverage = float(plot["actual_visitors"].notna().mean())
+        options.append((
+            int(eligible.sum()), coverage, row.sensor, plot.reset_index()
+        ))
+
+    _, _, sensor, plot = max(options, key=lambda option: option[:2])
+    return sensor, plot
+
+
+def _missing_spans(plot):
+    missing = plot["actual_visitors"].isna()
+    starts = plot.loc[missing & ~missing.shift(fill_value=False), "time"]
+    ends = plot.loc[missing & ~missing.shift(-1, fill_value=False), "time"]
+    return list(zip(starts, ends + pd.Timedelta(hours=1)))
+
+
 def _save_example_plot(candidates, model_dir):
-    plot = candidates[candidates["actual_visitors"].notna()]
+    sensor, plot = _example_window(candidates)
     if plot.empty:
         return
-    sensor = plot.groupby("sensor")["forecast_anomaly"].sum().idxmax()
-    plot = plot[plot["sensor"] == sensor]
-    plt.figure(figsize=(12, 4))
-    plt.fill_between(
-        plot["time"], plot["lower_visitors"], plot["upper_visitors"],
+
+    missing = plot["actual_visitors"].isna()
+    visible = plot.copy()
+    visible.loc[missing, [
+        "actual_visitors", "forecast_visitors", "lower_visitors", "upper_visitors",
+    ]] = np.nan
+
+    figure, axis = plt.subplots(figsize=(12, 4))
+    for number, (start, end) in enumerate(_missing_spans(plot)):
+        axis.axvspan(
+            start, end, color="0.9", zorder=0,
+            label="Messung fehlt" if number == 0 else None,
+        )
+    axis.fill_between(
+        visible["time"], visible["lower_visitors"], visible["upper_visitors"],
         alpha=0.2, label="Intervall",
     )
-    plt.plot(plot["time"], plot["actual_visitors"], label="Ist")
-    plt.plot(plot["time"], plot["forecast_visitors"], label="Prognose")
-    hits = plot[plot["forecast_anomaly"]]
-    plt.scatter(
-        hits["time"], hits["actual_visitors"], color="red",
-        label="Kandidat", zorder=3,
+    axis.plot(visible["time"], visible["actual_visitors"], label="Ist")
+    axis.plot(visible["time"], visible["forecast_visitors"], label="Prognose")
+    hits = visible[visible["forecast_anomaly"]]
+    normal = hits[hits["confidence"].ne("low")]
+    low = hits[hits["confidence"].eq("low")]
+    if not normal.empty:
+        axis.scatter(
+            normal["time"], normal["actual_visitors"], color="red",
+            label="Kandidat", zorder=3,
+        )
+    if not low.empty:
+        axis.scatter(
+            low["time"], low["actual_visitors"], color="darkorange",
+            label="Kandidat (niedrige Konfidenz)", zorder=3,
+        )
+
+    measured = int((~missing).sum())
+    percentage = f"{100 * measured / len(plot):.1f}".replace(".", ",")
+    axis.set_title(
+        f"{sensor} · {plot['time'].min():%d.%m.}–"
+        f"{plot['time'].max():%d.%m.%Y} UTC\n"
+        f"{measured}/{len(plot)} Stunden gemessen ({percentage} %); "
+        f"Kandidaten: {len(normal)} mit normaler, "
+        f"{len(low)} mit niedriger Konfidenz"
     )
-    plt.title(sensor)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(model_dir / "anomalies_example.png", dpi=150)
-    plt.close()
+    axis.set(xlabel="Zeit (UTC)", ylabel="Passanten pro Stunde")
+    axis.xaxis.set_major_formatter(DateFormatter("%d.%m."))
+    axis.legend(ncol=3, fontsize=8)
+    figure.tight_layout()
+    figure.savefig(model_dir / "anomalies_example.png", dpi=150)
+    plt.close(figure)
 
 
 def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
@@ -221,6 +299,7 @@ def evaluate(data_path=DATA_PATH, model_dir=MODEL_DIR, labels_path=None):
     df = all_df[all_df["name"].isin(modeled_sensors)].copy()
     data = make_windows(df, bundle["scaler"])
     masks = split_masks(data)
+    validate_bundle_data(bundle, data, masks, require_auxiliary=True)
     test = {name: values[masks["test_all"]] for name, values in data.items()}
     observed = test["observed"]
 
