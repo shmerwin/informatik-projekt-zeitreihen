@@ -1,14 +1,17 @@
 # Anomalieerkennung Bad Nauheim
 
-Die Pipeline lädt historische Passantenmessungen, bereitet sie kausal auf und
-vergleicht LSTM-Forecaster, Transformer, LSTM-Autoencoder und eine saisonale
-24-Stunden-Baseline mit demselben chronologischen Protokoll. Die beiden
-Prognosemodelle kombinieren einen 24-Stunden-Kontext mit einer getrennten
-Wochenreferenz der Stunde `t-168`.
+Das Projekt untersucht auffällige Passantenfrequenzen mit einem
+LSTM-Forecaster, einem Transformer, einem LSTM-Autoencoder und einer saisonalen
+24-Stunden-Baseline. Trainierte Modelle, Benchmarkergebnisse und der fertige
+Projektbericht sind im Repository enthalten. Die großen Roh- und
+Preprocessingdateien werden bei Bedarf über die städtische API neu erzeugt.
 
-## Python-Umgebung
+## Voraussetzungen und Installation
 
-Unter Windows wird die projektlokale Python-3.12-Umgebung einmalig so erzeugt:
+Das Projekt ist für Python 3.12 und die Versionen aus `requirements.txt`
+vorgesehen.
+
+Unter Windows:
 
 ```powershell
 py -3.12 -m venv .venv
@@ -16,129 +19,131 @@ py -3.12 -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-TensorFlow ab Version 2.11 unterstützt NVIDIA-GPUs nicht mehr nativ unter
-Windows. Für die RTX 3080 wird deshalb Ubuntu in WSL2 verwendet. Die
-Linux-Umgebung liegt absichtlich im schnellen WSL-Dateisystem:
+Unter Linux oder WSL:
 
 ```bash
-python3.12 -m venv ~/.venvs/anomalie
-source ~/.venvs/anomalie/bin/activate
-python -m pip install -r requirements.txt 'tensorflow[and-cuda]==2.21.0'
-TF_PACKAGE_DIR=$(dirname "$(python -c 'import tensorflow as tf; print(tf.__file__)')")
-ln -sf "$VIRTUAL_ENV"/lib/python3.12/site-packages/nvidia/*/lib/*.so* "$TF_PACKAGE_DIR"/
-ln -sf "$VIRTUAL_ENV"/lib/python3.12/site-packages/nvidia/cuda_nvcc/bin/ptxas "$VIRTUAL_ENV/bin/ptxas"
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-Der Symlink-Schritt folgt der
-[TensorFlow-Installationsanleitung](https://www.tensorflow.org/install/pip#linux).
-Trainingsläufe werden in jeder neuen WSL-Sitzung mit folgenden Variablen
-gestartet:
+Das Training funktioniert auf der CPU. Eine NVIDIA-GPU unter Linux oder WSL
+kann die Trainingszeit verkürzen; ihre Einrichtung ist nicht projektspezifisch
+und wird in der
+[TensorFlow-Installationsanleitung](https://www.tensorflow.org/install/pip#linux)
+beschrieben.
 
-```bash
-source ~/.venvs/anomalie/bin/activate
-export LD_LIBRARY_PATH="$VIRTUAL_ENV/lib/python3.12/site-packages/tensorflow"
-export TF_FORCE_GPU_ALLOW_GROWTH=true
-python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
-python -m src.transformer.train
-```
+## Vollständiger Ablauf
 
-Die Geräteprüfung muss mindestens ein `PhysicalDevice` vom Typ `GPU` ausgeben.
-
-## Daten aktualisieren
-
-Der Abruf verwendet nur die Python-Standardbibliothek, liest alle eindeutigen
-Sensor-IDs aus der Karte und teilt lange Zeiträume in 60-Tage-Anfragen. Die
-Zieldatei wird erst nach einem vollständigen erfolgreichen Abruf ersetzt. Ohne
-Argumente verwendet der Befehl den festen Abrufzeitraum vom 30.06.2025 bis zum
-01.07.2026 (Endzeitpunkt exklusiv).
+### 1. Daten herunterladen und aufbereiten
 
 ```powershell
 python -m src.download_data
 python -m src.preprocessing
 ```
 
-Der für die aktuellen Modellläufe verwendete Zeitraum lässt sich mit festen
-Grenzen erneut abrufen. Nachträgliche Änderungen historischer API-Daten können
-dabei nicht ausgeschlossen werden; die gespeicherten Modellartefakte beziehen
-sich auf den beim Trainingslauf vorliegenden Abrufstand:
+Dabei entstehen:
 
-```powershell
-python -m src.download_data `
-  --since 2025-06-30T00:00:00Z `
-  --until 2026-07-01T00:00:00Z
-python -m src.preprocessing
-```
+- `data/raw/sensordata.json`: unveränderte API-Daten,
+- `data/processed/cleaned_sensordata.json`: stündlich zusammengefasste und
+  aufbereitete Sensordaten.
 
-Nach Angaben des [Smart-City-Cockpits](https://smartes.bad-nauheim.de/#!/map/pedestrianFrequencyCQM)
-werden von Smartphones ausgesendete Funkfrequenzen anonym erfasst und gezählt;
-MAC-Adressen und personenbezogene Daten werden nicht ausgelesen. Die
-[Datenstrategie der Stadt Bad Nauheim](https://www.bad-nauheim.de/frontend/0_dokumente/3_lebenswert/digitalisierung/Bad_Nauheim_Datenstrategie_1.0.pdf)
-weist zugleich auf eine gewisse Unsicherheit bei wiederkehrenden Besuchern hin.
-`visitors` ist daher ein aus Gerätesignalen abgeleiteter Proxy und keine direkte
-Personen-Ground-Truth. Bei der Prüfung von Portal und API am 27.08.2026 wurde
-keine ausdrückliche Nachnutzungs- oder Open-Data-Lizenz identifiziert;
-technische Zugänglichkeit allein begründet kein Nachnutzungsrecht. Der
-Lizenzstatus muss vor einer anderweitigen Weiterverwendung geklärt werden.
+Beide Dateien sind wegen ihrer Größe nicht im Git-Repository enthalten. Der
+Standardzeitraum und die zeitlichen Teilmengen stehen zentral in
+`src/data_config.py`. Abweichende Abrufgrenzen können mit `--since` und
+`--until` an `src.download_data` übergeben werden.
 
-`data/raw/sensordata.json` und
-`data/processed/cleaned_sensordata.json` sind generierte Dateien und wegen
-ihrer Größe nicht Teil des Git-Repositories.
-Der verifizierte Snapshot enthält 537.810 Rohzeilen. Nach der Aufbereitung
-umfasst er 263.505 aktive Sensorstunden, davon 177.004 ursprünglich gemessen
-und 86.501 imputiert.
-
-Der unter `saved_models/legacy/2025-07/preprocessing` archivierte
-Imputationsbenchmark dokumentiert eine explorative Vorprüfung vom 30.06. bis
-07.07.2025. Er ist kein erneuter Gütenachweis für den später erweiterten
-Jahresdatensatz und gehört nicht zu den aktuellen Ergebnisartefakten.
-
-## Chronologische Aufteilung
-
-- Training: vor dem 1. April 2026
-- Tuning und Modellauswahl: April 2026
-- Kalibrierung von Intervallen und Alarmregeln: Mai 2026
-- chronologischer Test: Juni 2026
-
-Die Grenzen liegen zentral in `src/data_config.py` und werden von
-Preprocessing, Training, Benchmark und Evaluation gemeinsam verwendet.
-Der Juni wurde retrospektiv als Testmonat gewählt, nachdem in einem zuvor
-untersuchten Juli-Abruf neun Sensoren ohne Messung aufgefallen waren. Deshalb
-ist er trotz der programmgesteuerten Trennung kein unberührt festgelegter
-konfirmatorischer Holdout. Im Juni sind alle 30 Sensoren beobachtet; von 21.600
-aktiven Sensorstunden sind 13.142 gemessen.
-
-## Modelle neu erzeugen
+### 2. Modelle trainieren
 
 ```powershell
 python -m src.forecaster.train
 python -m src.transformer.train
 python -m src.autoencoder.train
 python -m src.seasonal_baseline
+```
+
+Die Ausgaben liegen in den gleichnamigen Unterordnern von `saved_models/`:
+
+- `forecaster.keras`, `transformer.keras` oder `autoencoder.keras`,
+- `model_bundle.json` mit Skalierung, Modellkonfiguration und Datenaufteilung,
+- `training_history.png` für die neuronalen Modelle.
+
+Ein erneutes Training ersetzt das jeweilige Modell und entfernt die zuvor
+kalibrierte Alarmregel aus dessen Bundle. Deshalb muss danach immer der
+Benchmark erneut ausgeführt werden.
+
+### 3. Alarmregeln kalibrieren und Modelle vergleichen
+
+```powershell
 python -m src.benchmark
+```
+
+Der Benchmark verwendet synthetische Anomalien, wählt für jedes Verfahren die
+Alarmregel und schreibt sie in dessen `model_bundle.json`. Erst danach dürfen
+Forecaster oder Transformer erneut ausgewertet werden.
+
+Die wichtigsten Benchmarkausgaben sind:
+
+- `saved_models/benchmark/model_comparison.csv`: kompakter Modellvergleich,
+- `saved_models/benchmark/model_comparison.json`: vollständiger Vergleich,
+- `saved_models/benchmark/roc_pr_comparison.png`: ROC- und PR-Kurven,
+- `saved_models/<modell>/injection_benchmark.csv`: Ergebnisse je
+  Anomalietyp, Stärke und Zufallsstartwert.
+
+Die synthetischen Kennzahlen prüfen die bekannten Injektionen. Sie sind keine
+Precision-, Recall- oder F1-Werte für unbekannte reale Ereignisse.
+
+### 4. Kandidaten im Testzeitraum erzeugen
+
+```powershell
 python -m src.forecaster.evaluate
 python -m src.forecaster.evaluate --model-dir saved_models/transformer
 ```
 
-Die neuronalen Modelle wählen Architektur und Epoche ausschließlich über den
-Tuning-Zeitraum. Die kuratierten Kandidaten reichen von kleinen bis deutlich
-größeren Netzen; Early Stopping begrenzt unnötige Epochen. Der
-Autoencoder-Suchlauf prüft Architekturen bis höchstens 200 Epochen. Der
-synthetische Benchmark wählt danach die Alarmregel mit synthetischen Anomalien im
-Kalibrierungsblock und bewertet sie mit getrennten Zufallsstartwerten im
-Testblock. Diese Kennzahlen sind keine Bewertung realer Anomalieereignisse.
+Für LSTM und Transformer entstehen jeweils im Modellordner:
 
-LSTM-Forecaster und Transformer erhalten je Zielstunde ein `24 x 8`-Fenster,
-eine Sensor-ID und zwölf Hilfsmerkmale: fünf Kalenderwerte, die beiden
-skalierten Werte von `t-168` samt Beobachtungsflag sowie Mittelwert und
-Standardabweichung beider skalierten Messgrößen im Fenster. Nur beim Training
-wird, sofern ein ausreichend langer ursprünglich gemessener Block vorhanden
-ist, ein zusammenhängender Block von einer bis vier Kontextstunden maskiert.
-Bei 1,18 % der Prognosefenster fehlt ein geeigneter Block; sie bleiben
-unverändert. Tuning, Kalibrierung, Test und Inferenz bleiben unverändert. Die
-saisonale Baseline und die MASE-Skalierung verwenden weiterhin `t-24`.
+| Datei | Inhalt |
+|---|---|
+| `anomalies.csv` | Stundenweise Scores, Kandidaten und fehlende Messungen |
+| `anomaly_events.csv` | Zusammenhängende Forecast- und Datenqualitätsereignisse |
+| `evaluation_metrics.json` | Prognosemetriken, Schwellen und Ereigniszahlen |
+| `anomalies_example.png` | Beispielausschnitt mit Prognoseintervall und Kandidaten |
+| `event_review_template.csv` | Vorlage zur manuellen Prüfung der Ereignisse |
+| `labels_template.csv` | Vorlage für manuelle Punktlabels |
 
-## Tests
+Die Einträge sind statistische Kandidaten und ohne fachliche Prüfung keine
+bestätigten realen Anomalien. Autoencoder und saisonale Baseline werden im
+gemeinsamen synthetischen Benchmark verglichen, erzeugen aber keinen eigenen
+Kandidatenexport für den nicht injizierten Testzeitraum.
+
+## Datenanalyse und Berichtsgrafiken
 
 ```powershell
-python -m unittest discover -s tests -v
+python analyse/analyse.py
+python analyse/preprocessing_plots.py
 ```
+
+`analyse.py` beschreibt die Rohdaten. `preprocessing_plots.py` erzeugt die im
+Bericht verwendeten Daten- und Preprocessingabbildungen unter
+`Dokumentation/Figures/`. Beide Befehle benötigen die zuvor erzeugten
+Datendateien.
+
+Der Bericht liegt unter `Dokumentation/thesis.pdf`. Mit einer LaTeX-Installation
+einschließlich Biber lässt er sich neu bauen:
+
+```powershell
+cd Dokumentation
+latexmk -pdf -interaction=nonstopmode -halt-on-error thesis.tex
+```
+
+
+## Datenquelle und Reproduzierbarkeit
+
+Die Daten stammen aus dem
+[Smart-City-Cockpit Bad Nauheim](https://smartes.bad-nauheim.de/#!/map/pedestrianFrequencyCQM).
+Nach Angaben des Portals werden von Smartphones ausgesendete Funkfrequenzen
+anonym erfasst; `visitors` ist daher ein Proxy und keine direkte
+Personenzählung. Ein späterer API-Abruf kann historische Änderungen enthalten
+und muss nicht bitgleich mit dem für die gespeicherten Modelle verwendeten
+Abrufstand sein. Vor einer Weiterverwendung der städtischen Daten ist außerdem
+deren Lizenzstatus zu klären.

@@ -12,7 +12,7 @@ Anzahl ursprünglich gemessener Zielpunkte nach dem 24-Stunden-Windowing.
 \begin{table}[htb]
   \centering
   \caption{Chronologische Teilmengen aller Verfahren. Alle Grenzen sind in UTC
-    angegeben. Eigene Darstellung.}
+    angegeben.}
   \label{tab:forecaster_splits}
   \begin{tabular}{lll r}
     \hline
@@ -34,7 +34,7 @@ im Juli keine einzige Messung. Daraufhin wurden das Datenende und sämtliche
 Zeitabschnitte um einen Monat vorgezogen sowie alle Modelle und Alarmregeln neu
 geschätzt. Der Juni ist deshalb ein chronologischer Testblock,
 aber kein unberührt festgelegter konfirmatorischer Holdout. Die automatisierte
-Modellauswahl verwendet seine Werte nicht; die menschliche Entscheidung über
+Modellauswahl verwendet seine Werte nicht; die manuelle Entscheidung über
 den Auswertungszeitraum beruhte hingegen auf bereits betrachteter
 Sensorabdeckung.
 
@@ -190,8 +190,5 @@ das Modelltraining und die synthetischen Injektionen werden feste, voneinander
 getrennte Zufallsstartwerte verwendet; bei den neuronalen Modellen sind
 deterministische TensorFlow-Operationen aktiviert.
 
-Da die städtische API historische Werte nachträglich verändern kann und die
-umfangreichen Rohdaten nicht Bestandteil des Git-Repositories sind, ist ein
-späterer Neuabruf nicht zwingend bitgleich mit dem untersuchten Snapshot. Die
-berichteten Datenmengen und Ergebnisse beziehen sich daher ausschließlich auf
-den am 27.~August 2026 verwendeten Abrufstand.
+Da die städtische API historische Werte nachträglich verändern kann, ist ein
+späterer Neuabruf nicht zwingend bitgleich mit dem untersuchten Snapshot.

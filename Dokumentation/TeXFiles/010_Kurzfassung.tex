@@ -26,7 +26,8 @@ Modellparameter. Eine
 chronologische Kandidatensuche wird durch Successive Halving verkürzt; die
 jeweils zwei verbleibenden Konfigurationen werden bis zum
 Early-Stopping-Kriterium oder zur jeweiligen Epochenobergrenze trainiert. Bei
-starken künstlichen Anomalien erreicht der
+starken künstlichen Anomalien, gleichgewichtet über die fünf untersuchten
+Typen, erreicht der
 LSTM-Forecaster einen mittleren Punkt-F1 von 0{,}674 und einen Ereignis-F1 von
 0{,}876. Der Transformer erreicht 0{,}670 beziehungsweise 0{,}824, der
 Autoencoder 0{,}534 beziehungsweise 0{,}653 und die saisonale Methode 0{,}436
@@ -38,7 +39,9 @@ Transformer 79 beziehungsweise 140 Stunden in 75 beziehungsweise 140
 Ereignissen; 8.458 fehlende Messungen werden in 2.016
 Datenqualitätsereignissen getrennt ausgewiesen. Die synthetischen Tests
 zeigen die erzielte Erkennungsleistung unter den definierten synthetischen
-Veränderungen.
+Veränderungen. Die getrennten Punkt- und Ereignismetriken unterscheiden dabei
+zwischen stundengenauer Markierung und der Erkennung zusammenhängender
+Ereignisse.
 Das Fehlen vollständiger realer Markierungen sowie einer zeitlich und räumlich
 unabhängigen externen Datenquelle begrenzt weiterhin Aussagen über unbekannte
 reale Anomalien.

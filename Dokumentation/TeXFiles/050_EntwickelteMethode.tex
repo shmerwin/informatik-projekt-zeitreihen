@@ -21,7 +21,10 @@ wiederkehrende Besucher nur mit einer gewissen Unsicherheit erfasst werden
 Gerätesignalen abgeleiteter Proxy und nicht als direkte Personen-Ground-Truth
 zu interpretieren. Jede Messung gehört zu einem von 30 Sensorstandorten in der
 Innenstadt und im Kurpark von Bad Nauheim und enthält neben dem Zeitstempel
-diesen Proxy sowie die mittlere Verweildauer (\texttt{avgDuration}). Der globale
+diesen Proxy sowie die mittlere Verweildauer (\texttt{avgDuration}). Der
+API-Abruf enthält für \texttt{avgDuration} kein Einheitenfeld. Werte dieser
+Größe werden daher im Folgenden in der unveränderten numerischen API-Einheit
+angegeben, ohne sie unbelegt als Minuten oder Sekunden zu interpretieren. Der globale
 Erfassungszeitraum reicht vom 30.~Juni
 2025, 00:00~Uhr, bis zum exklusiven Endzeitpunkt 1.~Juli 2026, 00:00~Uhr UTC
 und umfasst 8.784 Stunden. Da nicht alle Sensoren während des gesamten
@@ -29,12 +32,6 @@ Zeitraums Messungen lieferten, gilt ein Sensor ab seiner ersten Messung bis zum
 globalen Datenende als aktiv. Dadurch entstehen 263.505 aktive Sensorstunden.
 Ein ausbleibender Datenstrom am Reihenende bleibt damit als möglicher
 Sensorausfall sichtbar.
-
-Bei der Prüfung von Portal und API am 27.~August 2026 wurde keine ausdrückliche
-Nachnutzungs- oder Open-Data-Lizenz identifiziert. Die technische
-Zugänglichkeit ist nicht mit einer Nutzungserlaubnis gleichzusetzen; der
-Lizenzstatus muss vor einer anderweitigen Weiterverwendung mit dem Anbieter
-geklärt werden.
 
 \section{Datenqualität}
 \label{sec:Methode_Datenqualitaet}
@@ -61,6 +58,7 @@ widersprüchlichen Werten in das Training ein.
     vor.}
   \label{fig:preproc_mehrfach}
 \end{figure}
+\FloatBarrier
 
 \textbf{Messlücken:} Nach der Zusammenfassung der Mehrfachmessungen liegen
 zunächst 177.414 eindeutige Sensorstunden vor. In 17 Stunden melden mindestens
@@ -96,7 +94,7 @@ beobachteten Datenmerkmal abgeleitet.
 \begin{table}[htb]
   \centering
   \small
-  \caption{Aus der Datenanalyse abgeleitete Aufbereitung. Eigene Darstellung.}
+  \caption{Aus der Datenanalyse abgeleitete Aufbereitung.}
   \label{tab:analyse_preprocessing}
   \begin{tabularx}{\textwidth}{p{0.42\textwidth}X}
     \hline
@@ -194,18 +192,17 @@ den ergänzten Anteil innerhalb der aktiven Zeit jedes Sensors zusammen.
   \includegraphics[width=\textwidth]{Figures/preproc_beispielreihen.png}
   \caption{Sechswöchige Ausschnitte der bereinigten Zeitreihen eines typischen
     Sensors (oben) und des Sensors mit dem höchsten Imputationsanteil (unten),
-    jeweils bis zum 30.~Juni 2026. Markierte Punkte sind ergänzte Stunden.
-    Eigene Darstellung.}
+    jeweils bis zum 30.~Juni 2026. Markierte Punkte sind ergänzte Stunden.}
   \label{fig:preproc_beispiele}
 \end{figure}
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.85\textwidth]{Figures/preproc_imputationsanteil.png}
-  \caption{Anteil ergänzter Stunden innerhalb der aktiven Zeit jedes Sensors.
-    Eigene Darstellung.}
+  \caption{Anteil ergänzter Stunden innerhalb der aktiven Zeit jedes Sensors.}
   \label{fig:preproc_anteil}
 \end{figure}
+\FloatBarrier
 
 \section[Kritische Betrachtung]{Kritische Betrachtung der Bereinigung}
 \label{sec:Methode_Kritik}
@@ -309,10 +306,9 @@ LSTM-Schicht.
 
 Das LSTM verdichtet das 24-Stunden-Fenster in einen Zustandsvektor
 \cite{hochreiter1997long}. Dieser wird mit einem lernbaren Sensor-Embedding und
-den zwölf Hilfsmerkmalen der Zielstunde verbunden und durch eine dichte Schicht
+den zwölf Hilfsmerkmalen der Zielstunde verbunden und durch eine dense Schicht
 geführt. Das globale Training und das Sensor-Embedding orientieren sich an
-probabilistischen globalen RNN-Forecastern \cite{salinas2020deepar}; aufgrund
-der Quantilausgabe handelt es sich jedoch nicht um eine DeepAR-Implementierung.
+probabilistischen globalen RNN-Forecastern \cite{salinas2020deepar}.
 
 Das Ausgabefeld enthält für \texttt{visitors} und \texttt{avgDuration} jeweils
 die Quantile $q_{0{,}1}$, $q_{0{,}5}$ und $q_{0{,}9}$. Trainiert wird mit der
@@ -327,7 +323,7 @@ Die Prognose der Verweildauer bleibt eine Hilfsaufgabe; nur die
 \begin{table}[htb]
   \centering
   \small
-  \caption{Ausgewählte Forecaster-Architektur. Eigene Darstellung.}
+  \caption{Ausgewählte Forecaster-Architektur.}
   \label{tab:forecaster_architektur}
   \begin{tabularx}{\textwidth}{lrrX}
     \hline
@@ -361,19 +357,35 @@ trainiert; Kalibrierungs- und Testdaten bleiben dabei unberührt.
 \subsection{Nichtkonformitätsscore und Intervallkalibrierung}
 
 Für Merkmal $f$ wird die Abweichung einer Beobachtung $y_{t,f}$ vom
-vorhergesagten Quantilintervall relativ zu dessen Breite bewertet:
+vorhergesagten Quantilintervall relativ zu dessen Breite bewertet. Dazu seien
+$b_{t,f}=q_{0{,}9,t,f}-q_{0{,}1,t,f}$ und
+\begin{equation}
+ w_{\min,f}=\max\!\left\{Q_{0{,}1}\!\left(b_{t,f}\right),0{,}05\right\},
+ \qquad \widetilde b_{t,f}=\max\{b_{t,f},w_{\min,f}\}.
+\end{equation}
+Das 10-\%-Quantil wird aus den Intervallbreiten des Kalibrierungsabschnitts
+bestimmt. Die Untergrenze verhindert, dass nahezu kollabierte Intervalle
+künstlich große Scores erzeugen. Der Nichtkonformitätsscore lautet
 \begin{equation}
  e_{t,f}=\frac{\max\{q_{0{,}1,t,f}-y_{t,f},\,
  y_{t,f}-q_{0{,}9,t,f}\}}
- {\max\{q_{0{,}9,t,f}-q_{0{,}1,t,f},w_{\min,f}\}},
+ {\widetilde b_{t,f}},
  \qquad s_t=e_{t,\mathrm{visitors}}.
 \end{equation}
 Ein negativer Wert liegt innerhalb des ursprünglichen Quantilintervalls; ein
 positiver Wert misst die relative Überschreitung. Die Fehler beider Größen
 werden zur Diagnose ausgegeben; allein der Besucherfehler $s_t$ steuert den
-Alarm. Aus 15.159 gemessenen Punkten
-des getrennten Kalibrierungsabschnitts wird bei nominal
-$\alpha=0{,}01$ eine endliche empirische Quantilschwelle bestimmt. Das
+Alarm. Aus $n=15.159$ gemessenen Punkten des getrennten
+Kalibrierungsabschnitts wird bei nominal $\alpha=0{,}01$ eine endliche
+empirische Quantilschwelle bestimmt. Für die aufsteigend sortierten Scores
+$s_{(1)},\ldots,s_{(n)}$ gilt
+\begin{equation}
+ k(\alpha)=\min\!\left\{n,\left\lceil(n+1)(1-\alpha)\right\rceil\right\},
+ \qquad \tau_{\alpha}=s_{(k(\alpha))}.
+\end{equation}
+Die kalibrierten Grenzen des Merkmals $f$ sind damit
+$q_{0{,}1,t,f}-\tau_{\alpha,f}\widetilde b_{t,f}$ und
+$q_{0{,}9,t,f}+\tau_{\alpha,f}\widetilde b_{t,f}$. Das
 Verfahren ist an Conformalized Quantile Regression angelehnt
 \cite{romano2019cqr} und verwendet zusätzlich eine Breitenstandardisierung.
 Die Intervalle beider Größen werden getrennt kalibriert; die Alarmschwelle
@@ -393,10 +405,17 @@ Persistenzregel geprüft:
  \right).
 \end{equation}
 Eine solche Regel arbeitet je Sensor, betrachtet nur aktuelle und vergangene Scores
-und wird bei einer Zeitlücke oder einem imputierten Ziel zurückgesetzt. Aus 18
-vorab festgelegten Kombinationen werden $\tau_{\mathrm{hoch}}$,
-$\tau_{\mathrm{niedrig}}$, $m$ und $k$ ausschließlich anhand synthetischer
-Anomalien im Kalibrierungsabschnitt gewählt. Zulässig sind nur Regeln mit
+und wird bei einer Zeitlücke oder einem imputierten Ziel zurückgesetzt. Die 18
+vorab festgelegten Kombinationen bestehen aus zwei Direktschwellen mit
+$\alpha\in\{0{,}005,0{,}01\}$ sowie $2\cdot2\cdot4$ Kombinationen dieser
+hohen Schwellen mit niedrigen Schwellen
+$\alpha\in\{0{,}05,0{,}10\}$ und den vier Persistenzregeln
+$(m,k)\in\{(3,2),(4,3),(6,3),(6,4)\}$. Die hohen Schwellen entsprechen somit
+den empirischen 99{,}5- beziehungsweise 99-\%-Rängen, die niedrigen den
+95- beziehungsweise 90-\%-Rängen. $\tau_{\mathrm{hoch}}$,
+$\tau_{\mathrm{niedrig}}$, $m$ und $k$ werden ausschließlich anhand
+synthetischer Anomalien im Kalibrierungsabschnitt gewählt. Zulässig sind nur
+Regeln mit
 höchstens 1~\% Alarmen auf den unveränderten Kalibrierungswerten. Optimiert wird
 der über die Anomalietypen gleichgewichtete Ereignis-F1; die Injektionen des
 Testabschnitts beeinflussen diese Auswahl nicht.
@@ -449,7 +468,7 @@ Quantile ist nicht erforderlich.
 \begin{table}[htb]
   \centering
   \small
-  \caption{Ausgewählte Transformer-Architektur. Eigene Darstellung.}
+  \caption{Ausgewählte Transformer-Architektur.}
   \label{tab:transformer_architektur}
   \begin{tabularx}{\textwidth}{lrrX}
     \hline
@@ -469,6 +488,7 @@ Quantile ist nicht erforderlich.
     \hline
   \end{tabularx}
 \end{table}
+\FloatBarrier
 
 Insgesamt besitzt das Modell 61.398 trainierbare Parameter. Sechs vorab
 festgelegte Kandidaten mit 3.186 bis 157.334 Parametern variieren
@@ -503,10 +523,24 @@ dem Grundaufbau von Malhotra et al. \cite{malhotra2016encdec}. Die Literatur
 bestimmt damit die Form, während Tabelle~\ref{tab:autoencoder_architektur} die
 an den vorliegenden Datensatz angepassten Größen begründet.
 
+Das Netz besitzt insgesamt 50.562 trainierbare Parameter. Fünf vorab
+festgelegte Kandidaten variieren LSTM-Breite, Lernrate und maximale
+Maskierungslänge. Successive Halving reduziert sie nach zehn und 20 Epochen
+auf zwei Finalisten. Anhand des geringsten
+Tuning-Loss werden 64 Einheiten, eine Lernrate von
+0{,}0003 und höchstens sechs maskierte Stunden ausgewählt. Beide Finalisten
+erreichen die Obergrenze der Architektursuche von 200 Epochen; Early Stopping
+wird nicht ausgelöst. Der ausgewählte Kandidat erreicht sein Loss-Minimum bei
+Epoche~200. Das endgültige Modell wird deshalb für 200 Epochen auf Training und
+Tuning neu trainiert. Die Epochenwahl bleibt damit durch die festgelegte
+Obergrenze beschränkt. Eine
+zusätzliche versteckte Dense-Schicht ist nicht nötig, da die vorhandene
+Rekonstruktion bereits beide Messgrößen direkt aus dem Decoderzustand erzeugt.
+
 \begin{table}[htb]
   \centering
   \small
-  \caption{Größenwahl des Autoencoders. Eigene Darstellung.}
+  \caption{Größenwahl des Autoencoders.}
   \label{tab:autoencoder_architektur}
   \begin{tabularx}{\textwidth}{lrrX}
     \hline
@@ -525,20 +559,7 @@ an den vorliegenden Datensatz angepassten Größen begründet.
     \hline
   \end{tabularx}
 \end{table}
-
-Das Netz besitzt insgesamt 50.562 trainierbare Parameter. Fünf vorab
-festgelegte Kandidaten variieren LSTM-Breite, Lernrate und maximale
-Maskierungslänge. Successive Halving reduziert sie nach zehn und 20 Epochen
-auf zwei Finalisten. Anhand des geringsten
-Tuning-Loss werden 64 Einheiten, eine Lernrate von
-0{,}0003 und höchstens sechs maskierte Stunden ausgewählt. Beide Finalisten
-erreichen die Obergrenze der Architektursuche von 200 Epochen; Early Stopping
-wird nicht ausgelöst. Der ausgewählte Kandidat erreicht sein Loss-Minimum bei
-Epoche~200. Das endgültige Modell wird deshalb für 200 Epochen auf Training und
-Tuning neu trainiert. Die Epochenwahl bleibt damit durch die festgelegte
-Obergrenze beschränkt. Eine
-zusätzliche versteckte Dense-Schicht ist nicht nötig, da die vorhandene
-Rekonstruktion bereits beide Messgrößen direkt aus dem Decoderzustand erzeugt.
+\FloatBarrier
 
 Während des Trainings wird in jedem Fenster ein zusammenhängender Block von
 einer bis sechs ursprünglich gemessenen Stunden verdeckt. Damit bleiben selbst im
@@ -558,7 +579,13 @@ als echte Zielwerte.
 
 Für jede Stunde wird der absolute Rekonstruktionsfehler der letzten Position
 des Fensters verwendet. Der Besucherfehler wird durch sein 75-\%-Quantil im
-Kalibrierungsabschnitt geteilt und bildet den Anomaliewert. Die Rekonstruktion
+Kalibrierungsabschnitt geteilt und bildet den Anomaliewert
+$s_t=e_t/\max\{Q_{0{,}75}(e_{\mathrm{Kalibrierung}}),0{,}05\}$. Die Untergrenze
+von 0{,}05 verhindert eine instabile Division bei nahezu fehlerfreier
+Kalibrierung und ist beim finalen Modell nicht aktiv. Ein Score von eins
+entspricht dort daher dem 75-\%-Quantil der Kalibrierungsfehler, ein Score von
+drei dem Dreifachen davon. Die Division macht den Fehler dimensionslos; sie
+verändert seine Rangfolge nicht. Die Rekonstruktion
 von \texttt{avgDuration} bleibt eine Hilfsaufgabe und wird zur Diagnose
 ausgegeben, kann aber keinen Alarm auslösen. Die Alarmregel wird anschließend
 mit demselben Kalibrierungsverfahren wie beim Forecaster festgelegt. Dadurch
@@ -571,7 +598,11 @@ Als einfachste Vergleichsmethode wird kein weiteres Netz trainiert. Für jede
 gemessene Stunde wird der sensorweise robust skalierte Besucherwert von dem
 ebenfalls gemessenen Wert 24 Stunden zuvor abgezogen. Median und
 Interquartilsabstand dieser Residuen werden nur aus gemessenen
-Trainingspaaren bestimmt; ihr standardisierter Absolutwert bildet den Score.
+Trainingspaaren bestimmt. Der absolute Abstand zum Trainingsmedian, geteilt
+durch $\max\{\mathrm{IQR},0{,}05\}$, bildet den Score; die Untergrenze verhindert
+auch hier einen instabil kleinen Nenner. Ein saisonaler Score von fünf
+bezeichnet folglich eine Abweichung um fünf dieser robusten Skaleneinheiten vom
+medianen $t-24$-Residuum.
 Die Baseline besitzt damit keine trainierbaren Parameter. Sie verwendet
 dieselbe Kalibrierung, dieselben Besucher-Injektionen und dieselben
 Entscheidungskriterien wie die neuronalen Modelle. Sie liefert nur für Stunden

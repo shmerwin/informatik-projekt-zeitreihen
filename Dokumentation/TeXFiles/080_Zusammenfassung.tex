@@ -23,6 +23,11 @@ jedoch trotz 200 Trainingsepochen nicht die
 Gesamtkennzahlen der Prognosemodelle. Zusätzliche Attention geht damit mit
 geringeren Prognosefehlern sowie einer nahezu identischen, minimal höheren
 ROC-AUC und AP einher, verbessert die binäre Alarmregel aber nicht durchgehend.
+Die zusammengefassten Werte verdecken dabei eine klare Typabhängigkeit: Beide
+Prognosemodelle ordnen abrupte Spikes und Dips wesentlich zuverlässiger als
+Drift und insbesondere Stuck-at. Der Ereignis-F1 kombiniert dabei Precision
+und Recall zusammenhängender Ereignisse, bewertet jedoch nicht die vollständige
+stündliche Abdeckung innerhalb eines bereits zugeordneten Ereignisses.
 
 Für weiterführende Untersuchungen sind verifizierte Sensorlaufzeiten sowie
 eine zeitlich und möglichst räumlich unabhängige Datenquelle mit fachlich
